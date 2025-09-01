@@ -112,6 +112,37 @@ app.delete("/api/entities/Participant/:id", async (req, res) => {
   }
 });
 
+app.post("/api/entities/Participant/bulk", async (req, res) => {
+  try {
+    const participants = req.body;
+    console.log(`[${new Date().toISOString()}] Executing bulk insert for ${participants.length} participants`);
+    
+    if (!Array.isArray(participants) || participants.length === 0) {
+      return res.status(400).json({ error: "Request body must be a non-empty array of participants" });
+    }
+
+    const results = [];
+    
+    // Insert each participant individually to get proper IDs and error handling
+    for (const participant of participants) {
+      try {
+        const [result] = await pool.query("INSERT INTO Participant SET ?", [participant]);
+        results.push({ id: result.insertId, ...participant });
+        console.log(`[${new Date().toISOString()}] Bulk insert: Created participant ${participant.name} with ID ${result.insertId}`);
+      } catch (error) {
+        console.error(`[${new Date().toISOString()}] Error inserting participant ${participant.name}:`, error);
+        // Continue with other participants, but log the error
+      }
+    }
+    
+    console.log(`[${new Date().toISOString()}] Bulk insert completed: ${results.length}/${participants.length} participants created`);
+    res.json(results);
+  } catch (error) {
+    console.error(`[${new Date().toISOString()}] Database error in Participant bulk POST:`, error);
+    res.status(500).json({ error: error.message, stack: error.stack });
+  }
+});
+
 // ==================== Product ====================
 app.get("/api/entities/Product", async (req, res) => {
   try {
