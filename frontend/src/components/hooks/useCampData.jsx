@@ -42,7 +42,7 @@ export function useCampData() {
       // Lade Produkte und Teilnehmer parallel
       const [productsData, participantsData] = await Promise.all([
         Product.list(),
-        Participant.filter({ camp_id: activeCampData.id, is_checked_in: true })
+        Participant.filter({ camp_id: activeCampData.id })
       ]);
       
       if (!isMountedRef.current) return;
@@ -132,7 +132,7 @@ export function useCart() {
 
   const clearCart = useCallback(() => setCart([]), []);
 
-  const totalPrice = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+  const totalPrice = cart.reduce((sum, item) => sum + ((parseFloat(item.price) || 0) * item.quantity), 0);
 
   return { cart, addToCart, removeFromCart, updateQuantity, clearCart, totalPrice };
 }

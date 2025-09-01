@@ -76,7 +76,9 @@ export function StandardKasse() {
       return;
     }
 
-    if (activeCamp.require_positive_balance !== false && participant.balance < totalPrice) {
+    // Allow negative balances (debt) - participants can go into minus
+    // Only check if explicitly required by camp settings
+    if (activeCamp.require_positive_balance === true && participant.balance < totalPrice) {
       toast({ variant: "destructive", title: "Fehler", description: "Nicht genügend Guthaben." });
       return;
     }
@@ -224,7 +226,7 @@ export function StandardKasse() {
                 <CardContent className="p-4 text-center">
                   <div className="text-3xl mb-2">{product.icon}</div>
                   <h3 className="font-medium text-sm">{product.name}</h3>
-                  <p className="text-lg font-bold text-green-600">€ {product.price.toFixed(2)}</p>
+                  <p className="text-lg font-bold text-green-600">€ {(Number(product.price) || 0).toFixed(2)}</p>
                   <p className="text-xs opacity-70">Lager: {product.stock}</p>
                 </CardContent>
               </Card>
@@ -247,7 +249,7 @@ export function StandardKasse() {
                     <div key={item.id} className="flex items-center justify-between p-2 bg-gray-50 rounded">
                       <div className="flex-1">
                         <p className="font-medium">{item.name}</p>
-                        <p className="text-sm text-gray-600">€ {item.price.toFixed(2)} x {item.quantity}</p>
+                        <p className="text-sm text-gray-600">€ {(Number(item.price) || 0).toFixed(2)} x {item.quantity}</p>
                       </div>
                       <div className="flex items-center gap-2">
                         <Button variant="outline" size="sm" onClick={() => updateQuantity(item.id, item.quantity - 1, products)}>-</Button>

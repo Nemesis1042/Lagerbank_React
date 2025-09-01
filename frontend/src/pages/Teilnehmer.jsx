@@ -19,6 +19,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from "@/components/ui/use-toast";
 import { NFCWriter } from '../components/NFCWriter';
+import { formatBalance, getNumericBalance } from '../utils/formatBalance';
 
 // Hilfsfunktion für saubere Barcode-IDs
 const createBarcodeId = (name) => {
@@ -66,7 +67,7 @@ function TopUpDialog({ participant, onFinished, activeCamp }) {
         <>
             <DialogHeader><DialogTitle>Guthaben aufladen für {participant.name}</DialogTitle></DialogHeader>
             <div className="py-4 space-y-2">
-                <p>Aktuelles Guthaben: € {participant.balance.toFixed(2)}</p>
+                <p>Aktuelles Guthaben: € {formatBalance(participant.balance)}</p>
                 <Label htmlFor="topup-amount">Betrag zum Aufladen</Label>
                 <Input id="topup-amount" type="number" value={amount} onChange={(e) => setAmount(parseFloat(e.target.value) || 0)} className="themed-input" />
             </div>
@@ -864,14 +865,14 @@ function TeilnehmerContent() {
                   <div className="grid grid-cols-2 gap-2 text-sm">
                     <div>
                       <span className={p.balance <= 5 ? 'text-yellow-600 font-semibold' : p.balance <= 0 ? 'text-red-600 font-semibold' : ''}>
-                        Aktuell: € {p.balance.toFixed(2)}
+                        Aktuell: € {formatBalance(p.balance)}
                       </span>
                       {p.balance <= 5 && p.balance > 0 && <Badge className="ml-2 bg-yellow-100 text-yellow-800">Niedrig</Badge>}
                       {p.balance <= 0 && <Badge className="ml-2 bg-red-100 text-red-800">Leer</Badge>}
                     </div>
                     <div>
-                      <span className={`text-sm ${(prognosis.projectedRemainingBalance || 0) < 0 ? 'text-red-600 font-semibold' : (prognosis.projectedRemainingBalance || 0) < 10 ? 'text-yellow-600' : 'text-green-600'}`}>
-                        Prognose: € {(prognosis.projectedRemainingBalance || 0).toFixed(2)}
+                      <span className={`text-sm ${(Number(prognosis.projectedRemainingBalance) || 0) < 0 ? 'text-red-600 font-semibold' : (Number(prognosis.projectedRemainingBalance) || 0) < 10 ? 'text-yellow-600' : 'text-green-600'}`}>
+                        Prognose: € {(Number(prognosis.projectedRemainingBalance) || 0).toFixed(2)}
                       </span>
                     </div>
                   </div>
@@ -879,7 +880,7 @@ function TeilnehmerContent() {
                     <div className="text-xs opacity-70 bg-gray-50 p-2 rounded">
                       Ø täglich: € {prognosis.dailySpending.toFixed(2)} &bull; 
                       Verbleibend: {prognosis.remainingDays} Tage &bull;
-                      Erwartete weitere Ausgaben: € {(prognosis.projectedRemainingSpending || 0).toFixed(2)}
+                      Erwartete weitere Ausgaben: € {(Number(prognosis.projectedRemainingSpending) || 0).toFixed(2)}
                     </div>
                   )}
                    <div className="flex gap-2 pt-2 border-t border-dashed">
@@ -929,20 +930,20 @@ function TeilnehmerContent() {
                       <TableCell>{p.barcode_id}</TableCell>
                       <TableCell>
                         <span className={p.balance <= 5 ? 'text-yellow-600 font-semibold' : p.balance <= 0 ? 'text-red-600 font-semibold' : ''}>
-                          € {p.balance.toFixed(2)}
+                          € {formatBalance(p.balance)}
                         </span>
                         {p.balance <= 5 && p.balance > 0 && <Badge className="ml-2 bg-yellow-100 text-yellow-800">Niedrig</Badge>}
                         {p.balance <= 0 && <Badge className="ml-2 bg-red-100 text-red-800">Leer</Badge>}
                       </TableCell>
                       <TableCell>
                         <span className="text-sm">
-                          € {(prognosis.dailySpending || 0).toFixed(2)}
+                          € {(Number(prognosis.dailySpending) || 0).toFixed(2)}
                         </span>
                       </TableCell>
                       <TableCell>
                         <div className="flex flex-col">
-                          <span className={`font-semibold ${(prognosis.projectedRemainingBalance || 0) < 0 ? 'text-red-600' : (prognosis.projectedRemainingBalance || 0) < 10 ? 'text-yellow-600' : 'text-green-600'}`}>
-                            € {(prognosis.projectedRemainingBalance || 0).toFixed(2)}
+                          <span className={`font-semibold ${(Number(prognosis.projectedRemainingBalance) || 0) < 0 ? 'text-red-600' : (Number(prognosis.projectedRemainingBalance) || 0) < 10 ? 'text-yellow-600' : 'text-green-600'}`}>
+                            € {(Number(prognosis.projectedRemainingBalance) || 0).toFixed(2)}
                           </span>
                           {prognosis.remainingDays > 0 && (
                             <span className="text-xs opacity-60">

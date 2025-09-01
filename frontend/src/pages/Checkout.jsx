@@ -39,8 +39,8 @@ function CheckoutModal({ participant, onFinished }) {
         const deposits = allTransactions.filter(t => t.total_price < 0); // Negative = Einzahlungen
         
         // Berechne Summen
-        const spent = purchases.reduce((sum, t) => sum + t.total_price, 0);
-        const deposited = Math.abs(deposits.reduce((sum, t) => sum + t.total_price, 0));
+        const spent = purchases.reduce((sum, t) => sum + (parseFloat(t.total_price) || 0), 0);
+        const deposited = Math.abs(deposits.reduce((sum, t) => sum + (parseFloat(t.total_price) || 0), 0));
         
         if (!isMounted) return; // Prevent setting state if component unmounted
         
@@ -59,11 +59,11 @@ function CheckoutModal({ participant, onFinished }) {
               product_name: t.product_name,
               quantity: 0,
               total_price: 0,
-              unit_price: t.quantity > 0 ? t.total_price / t.quantity : 0
+              unit_price: (parseInt(t.quantity) || 0) > 0 ? (parseFloat(t.total_price) || 0) / (parseInt(t.quantity) || 1) : 0
             };
           }
-          grouped[key].quantity += t.quantity;
-          grouped[key].total_price += t.total_price;
+          grouped[key].quantity += parseInt(t.quantity) || 0;
+          grouped[key].total_price += parseFloat(t.total_price) || 0;
           // Aktualisiere unit_price basierend auf neuer Gesamtmenge
           if (grouped[key].quantity > 0) {
             grouped[key].unit_price = grouped[key].total_price / grouped[key].quantity;
@@ -356,10 +356,20 @@ function CheckoutContent() {
         return;
       }
 
-      const data = await Participant.filter({ 
-        is_checked_in: true,
+      // Get all participants for the camp (both checked in and not checked in)
+      const allParticipants = await Participant.filter({ 
         camp_id: currentCampId 
       });
+      
+      console.log('All participants for camp:', allParticipants);
+      console.log('Participants with is_checked_in true:', allParticipants.filter(p => p.is_checked_in === true));
+      console.log('Participants with is_checked_in false:', allParticipants.filter(p => p.is_checked_in === false));
+      
+      // For now, show all participants to debug the issue
+      // Later we can filter only checked-in participants
+      const data = allParticipants;
+      
+      console.log('Showing all participants for debugging:', data);
       
       if (!isMountedRef.current) return; // Prevent state updates if component unmounted
       

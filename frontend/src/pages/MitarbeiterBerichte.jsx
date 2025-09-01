@@ -29,11 +29,11 @@ function StaffReport({ participant, transactions, totalAmount }) {
         product_name: transaction.product_name,
         total_quantity: 0,
         total_price: 0,
-        unit_price: transaction.total_price / transaction.quantity
+        unit_price: (parseFloat(transaction.total_price) || 0) / (parseInt(transaction.quantity) || 1)
       };
     }
-    acc[key].total_quantity += transaction.quantity;
-    acc[key].total_price += transaction.total_price;
+    acc[key].total_quantity += parseInt(transaction.quantity) || 0;
+    acc[key].total_price += parseFloat(transaction.total_price) || 0;
     return acc;
   }, {});
 
@@ -168,11 +168,11 @@ function AllStaffReports({ allStaffData }) {
                   product_name: transaction.product_name,
                   total_quantity: 0,
                   total_price: 0,
-                  unit_price: transaction.total_price / transaction.quantity
+                  unit_price: (parseFloat(transaction.total_price) || 0) / (parseInt(transaction.quantity) || 1)
                 };
               }
-              acc[key].total_quantity += transaction.quantity;
-              acc[key].total_price += transaction.total_price;
+              acc[key].total_quantity += parseInt(transaction.quantity) || 0;
+              acc[key].total_price += parseFloat(transaction.total_price) || 0;
               return acc;
             }, {});
 
@@ -332,7 +332,7 @@ function MitarbeiterBerichteContent() {
     if (staff) {
       const staffTransactions = await Transaction.filter({ participant_id: staffId });
       setTransactions(staffTransactions);
-      const total = staffTransactions.reduce((sum, t) => sum + t.total_price, 0);
+      const total = staffTransactions.reduce((sum, t) => sum + (parseFloat(t.total_price) || 0), 0);
       setTotalAmount(total);
     }
   };
@@ -343,7 +343,7 @@ function MitarbeiterBerichteContent() {
     
     for (const staff of staffMembers) {
       const staffTransactions = await Transaction.filter({ participant_id: staff.id });
-      const totalAmount = staffTransactions.reduce((sum, t) => sum + t.total_price, 0);
+      const totalAmount = staffTransactions.reduce((sum, t) => sum + (parseFloat(t.total_price) || 0), 0);
       
       allData.push({
         participant: staff,

@@ -219,7 +219,7 @@ function InventurContent() {
                         <span className="text-xl">{product.icon}</span>
                         <div>
                           <p className="font-medium">{product.name}</p>
-                          <p className="text-sm text-gray-500">€ {product.price.toFixed(2)}</p>
+                          <p className="text-sm text-gray-500">€ {(Number(product.price) || 0).toFixed(2)}</p>
                         </div>
                       </div>
                     </TableCell>

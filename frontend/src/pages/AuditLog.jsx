@@ -40,8 +40,8 @@ function AuditLogContent() {
         setSelectedCamp(activeCampData?.id || 'all');
       }
 
-      // Lade Audit-Logs (neueste zuerst)
-      const logsData = await AuditLog.list('-created_date', 1000);
+      // Lade Audit-Logs
+      const logsData = await AuditLog.list();
       setLogs(logsData);
     } catch (error) {
       console.error('Fehler beim Laden der Audit-Logs:', error);
@@ -122,7 +122,7 @@ function AuditLogContent() {
     const csvData = [
       'Datum,Zeit,Aktion,Entität,Details,Lager',
       ...filteredLogs.map(log => {
-        const date = new Date(log.created_date);
+        const date = new Date(log.created_at);
         return `${date.toLocaleDateString('de-DE')},${date.toLocaleTimeString('de-DE')},"${log.action}","${log.entity_type}","${formatDetails(log.details).replace(/"/g, '""')}","${log.camp_name || ''}"`;
       })
     ];
@@ -243,10 +243,10 @@ function AuditLogContent() {
                     <TableRow key={log.id} className="themed-list-item">
                       <TableCell className="font-mono text-sm">
                         <div>
-                          {new Date(log.created_date).toLocaleDateString('de-DE')}
+                          {new Date(log.created_at).toLocaleDateString('de-DE')}
                         </div>
                         <div className="text-xs opacity-70">
-                          {new Date(log.created_date).toLocaleTimeString('de-DE')}
+                          {new Date(log.created_at).toLocaleTimeString('de-DE')}
                         </div>
                       </TableCell>
                       <TableCell>

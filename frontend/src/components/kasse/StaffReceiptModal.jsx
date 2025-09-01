@@ -43,7 +43,7 @@ export function StaffReceiptModal({ transaction, onClose }) {
                 <hr className="my-2" />
                 <div className="flex justify-between font-bold">
                   <span>Gesamt:</span>
-                  <span>€ {(totalPrice || 0).toFixed(2)}</span>
+                  <span>€ {(Number(totalPrice) || 0).toFixed(2)}</span>
                 </div>
                 <div className="text-xs opacity-70 mt-2">
                   Transaktions-IDs: {(transactions || []).map(t => t?.id || 'N/A').join(', ')}

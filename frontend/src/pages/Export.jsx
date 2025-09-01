@@ -68,7 +68,7 @@ function ExportContent() {
       const csvData = [
         'TN-Nr,Name,Barcode-ID,Aktuelles Guthaben,Startguthaben,Typ,Eingecheckt',
         ...participants.map(p => 
-          `${p.tn_id || ''},${p.name},"${p.barcode_id}",${p.balance.toFixed(2)},${(p.initial_balance || 0).toFixed(2)},${p.is_staff ? 'Mitarbeiter' : 'Teilnehmer'},${p.is_checked_in ? 'Ja' : 'Nein'}`
+          `${p.tn_id || ''},${p.name},"${p.barcode_id}",${(Number(p.balance) || 0).toFixed(2)},${(Number(p.initial_balance) || 0).toFixed(2)},${p.is_staff ? 'Mitarbeiter' : 'Teilnehmer'},${p.is_checked_in ? 'Ja' : 'Nein'}`
         )
       ];
       

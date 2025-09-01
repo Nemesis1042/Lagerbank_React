@@ -20,23 +20,34 @@ export function ClickKasse() {
   const [showStaffReceipt, setShowStaffReceipt] = useState(false);
   const [lastTransaction, setLastTransaction] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState(null); // 'participants' or 'staff'
   
   const { activeCamp, products, participants, isLoading, loadData } = useCampData();
   const { cart, addToCart, removeFromCart, updateQuantity, clearCart, totalPrice } = useCart();
   const { toast } = useToast();
 
-  // Filter participants
+  // Filter participants based on category and search term
   useEffect(() => {
+    let baseParticipants = participants;
+    
+    // Filter by category first
+    if (selectedCategory === 'participants') {
+      baseParticipants = participants.filter(p => !p.is_staff);
+    } else if (selectedCategory === 'staff') {
+      baseParticipants = participants.filter(p => p.is_staff);
+    }
+    
+    // Then filter by search term
     if (!searchTerm.trim()) {
-      setFilteredParticipants(participants);
+      setFilteredParticipants(baseParticipants);
     } else {
-      const filtered = participants.filter(p => 
+      const filtered = baseParticipants.filter(p => 
         p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         (p.tn_id && p.tn_id.toString().includes(searchTerm))
       );
       setFilteredParticipants(filtered);
     }
-  }, [searchTerm, participants]);
+  }, [searchTerm, participants, selectedCategory]);
 
   const processCheckout = async () => {
     if (!participant || cart.length === 0 || !activeCamp) {
@@ -44,8 +55,9 @@ export function ClickKasse() {
       return;
     }
 
-    // Prüfe Guthaben-Regel
-    if (activeCamp.require_positive_balance !== false && participant.balance < totalPrice) {
+    // Allow negative balances (debt) - participants can go into minus
+    // Only check if explicitly required by camp settings
+    if (activeCamp.require_positive_balance === true && participant.balance < totalPrice) {
       toast({ variant: "destructive", title: "Fehler", description: "Nicht genügend Guthaben." });
       return;
     }
@@ -88,6 +100,7 @@ export function ClickKasse() {
       // Reset
       clearCart();
       setParticipant(null);
+      setSelectedCategory(null);
       loadData();
 
     } catch (error) {
@@ -128,58 +141,123 @@ export function ClickKasse() {
 
           {!participant ? (
             <>
-              {/* Suchleiste */}
-              <Card className="content-card mb-6">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Search className="h-5 w-5" />
-                    Teilnehmer suchen
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="relative">
-                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-                    <Input
-                      placeholder="Nach Name oder TN-Nr. suchen..."
-                      value={searchTerm}
-                      onChange={e => setSearchTerm(e.target.value)}
-                      className="themed-input pl-10 pr-10"
-                    />
-                    {searchTerm && (
-                      <Button
-                        onClick={() => setSearchTerm('')}
-                        variant="ghost"
-                        size="icon"
-                        className="absolute right-2 top-1/2 transform -translate-y-1/2 h-6 w-6"
-                      >
-                        <X className="h-4 w-4" />
-                      </Button>
-                    )}
+              {!selectedCategory ? (
+                /* Kategorie-Auswahl */
+                <div className="flex flex-col items-center justify-center py-12 space-y-6">
+                  <h3 className="text-xl font-semibold mb-4">Kategorie auswählen</h3>
+                  <div className="flex gap-6">
+                    <Card 
+                      className="cursor-pointer transition-all hover:scale-105 content-card w-48"
+                      onClick={() => setSelectedCategory('participants')}
+                    >
+                      <CardContent className="p-8 text-center">
+                        <Users className="h-16 w-16 mx-auto text-gray-500 mb-4" />
+                        <h4 className="text-lg font-semibold">TN</h4>
+                        <p className="text-sm text-gray-600 mt-2">Teilnehmer</p>
+                      </CardContent>
+                    </Card>
+                    
+                    <Card 
+                      className="cursor-pointer transition-all hover:scale-105 content-card w-48"
+                      onClick={() => setSelectedCategory('staff')}
+                    >
+                      <CardContent className="p-8 text-center">
+                        <UserCheck className="h-16 w-16 mx-auto text-blue-500 mb-4" />
+                        <h4 className="text-lg font-semibold">MIA</h4>
+                        <p className="text-sm text-gray-600 mt-2">Mitarbeiter</p>
+                      </CardContent>
+                    </Card>
                   </div>
-                </CardContent>
-              </Card>
+                </div>
+              ) : (
+                <>
+                  {/* Zurück Button */}
+                  <div className="mb-4">
+                    <Button 
+                      onClick={() => {
+                        setSelectedCategory(null);
+                        setSearchTerm('');
+                      }}
+                      variant="outline"
+                      className="mb-4"
+                    >
+                      ← Zurück zur Kategorieauswahl
+                    </Button>
+                  </div>
 
-              {/* Teilnehmer Grid */}
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                {filteredParticipants.map(p => (
-                  <Card 
-                    key={p.id} 
-                    className="cursor-pointer transition-all hover:scale-105 content-card"
-                    onClick={() => setParticipant(p)}
-                  >
-                    <CardContent className="p-4 text-center">
-                      <div className="mb-2">
-                        {p.is_staff ? <UserCheck className="h-8 w-8 mx-auto text-blue-500" /> : <Users className="h-8 w-8 mx-auto text-gray-500" />}
+                  {/* Suchleiste */}
+                  <Card className="content-card mb-6">
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        <Search className="h-5 w-5" />
+                        {selectedCategory === 'participants' ? 'Teilnehmer' : 'Mitarbeiter'} suchen
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="relative">
+                        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                        <Input
+                          placeholder="Nach Name oder TN-Nr. suchen..."
+                          value={searchTerm}
+                          onChange={e => setSearchTerm(e.target.value)}
+                          className="themed-input pl-10 pr-10"
+                        />
+                        {searchTerm && (
+                          <Button
+                            onClick={() => setSearchTerm('')}
+                            variant="ghost"
+                            size="icon"
+                            className="absolute right-2 top-1/2 transform -translate-y-1/2 h-6 w-6"
+                          >
+                            <X className="h-4 w-4" />
+                          </Button>
+                        )}
                       </div>
-                      <h3 className="font-medium text-sm mb-1">{p.name}</h3>
-                      {p.tn_id && <Badge variant="outline" className="text-xs mb-2">TN-{p.tn_id}</Badge>}
-                      <p className={`text-lg font-bold ${p.balance <= 5 ? 'text-red-600' : 'text-green-600'}`}>
-                        € {p.balance.toFixed(2)}
-                      </p>
                     </CardContent>
                   </Card>
-                ))}
-              </div>
+
+                  {/* Teilnehmer/Mitarbeiter Grid */}
+                  {filteredParticipants.length === 0 ? (
+                    <div className="text-center py-8">
+                      <p className="text-gray-500">
+                        {selectedCategory === 'participants' 
+                          ? 'Keine Teilnehmer gefunden.' 
+                          : 'Keine Mitarbeiter gefunden.'
+                        }
+                      </p>
+                      <div className="text-sm text-gray-400 mt-2 space-y-1">
+                        <p>Gesamt verfügbare Personen: {participants.length}</p>
+                        <p>Teilnehmer (nicht Mitarbeiter): {participants.filter(p => !p.is_staff).length}</p>
+                        <p>Mitarbeiter: {participants.filter(p => p.is_staff).length}</p>
+                        <p>Aktuelle Kategorie: {selectedCategory}</p>
+                        <p>Suchbegriff: "{searchTerm}"</p>
+                        <p>Aktives Lager: {activeCamp?.name} (ID: {activeCamp?.id})</p>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                      {filteredParticipants.map(p => (
+                        <Card 
+                          key={p.id} 
+                          className="cursor-pointer transition-all hover:scale-105 content-card"
+                          onClick={() => setParticipant(p)}
+                        >
+                          <CardContent className="p-4 text-center">
+                            <div className="mb-2">
+                              {p.is_staff ? <UserCheck className="h-8 w-8 mx-auto text-blue-500" /> : <Users className="h-8 w-8 mx-auto text-gray-500" />}
+                            </div>
+                            <h3 className="font-medium text-sm mb-1">{p.name}</h3>
+                            {p.tn_id && <Badge variant="outline" className="text-xs mb-2">TN-{p.tn_id}</Badge>}
+                            <p className={`text-lg font-bold ${p.balance <= 5 ? 'text-red-600' : 'text-green-600'}`}>
+                              € {p.balance.toFixed(2)}
+                            </p>
+                          </CardContent>
+                        </Card>
+                      ))}
+                    </div>
+                  )}
+                </>
+              )}
             </>
           ) : (
             <>
@@ -213,7 +291,7 @@ export function ClickKasse() {
                     <CardContent className="p-4 text-center">
                       <div className="text-3xl mb-2">{product.icon}</div>
                       <h3 className="font-medium text-sm">{product.name}</h3>
-                      <p className="text-lg font-bold text-green-600">€ {product.price.toFixed(2)}</p>
+                      <p className="text-lg font-bold text-green-600">€ {(Number(product.price) || 0).toFixed(2)}</p>
                       <p className="text-xs opacity-70">Lager: {product.stock}</p>
                     </CardContent>
                   </Card>
@@ -238,7 +316,7 @@ export function ClickKasse() {
                     <div key={item.id} className="flex items-center justify-between p-2 bg-gray-50 rounded">
                       <div className="flex-1">
                         <p className="font-medium">{item.name}</p>
-                        <p className="text-sm text-gray-600">€ {item.price.toFixed(2)} x {item.quantity}</p>
+                        <p className="text-sm text-gray-600">€ {(Number(item.price) || 0).toFixed(2)} x {item.quantity}</p>
                       </div>
                       <div className="flex items-center gap-2">
                         <Button variant="outline" size="sm" onClick={() => updateQuantity(item.id, item.quantity - 1, products)}>-</Button>
@@ -258,7 +336,7 @@ export function ClickKasse() {
                   
                   <div className="space-y-2 pt-3">
                     <Button onClick={processCheckout} className="w-full primary-btn">Bezahlen</Button>
-                    <Button onClick={() => { clearCart(); setParticipant(null); }} variant="outline" className="w-full">Abbrechen</Button>
+                    <Button onClick={() => { clearCart(); setParticipant(null); setSelectedCategory(null); }} variant="outline" className="w-full">Abbrechen</Button>
                   </div>
                 </div>
               )}

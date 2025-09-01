@@ -21,6 +21,7 @@ export const Participant = {
   create: (data) => apiRequest("/Participant", { method: "POST", body: JSON.stringify(data) }),
   update: (id, data) => apiRequest(`/Participant/${id}`, { method: "PUT", body: JSON.stringify(data) }),
   delete: (id) => apiRequest(`/Participant/${id}`, { method: "DELETE" }),
+  bulkCreate: (data) => apiRequest("/Participant/bulk", { method: "POST", body: JSON.stringify(data) }),
 };
 
 // ==================== Product ====================
@@ -35,7 +36,12 @@ export const Product = {
 // ==================== Transaction ====================
 export const Transaction = {
   list: () => apiRequest("/Transaction"),
+  filter: (params) => {
+    const queryString = new URLSearchParams(params).toString();
+    return apiRequest(`/Transaction?${queryString}`);
+  },
   getById: (id) => apiRequest(`/Transaction/${id}`),
+  create: (data) => apiRequest("/Transaction", { method: "POST", body: JSON.stringify(data) }),
   update: (id, data) => apiRequest(`/Transaction/${id}`, { method: "PUT", body: JSON.stringify(data) }),
 };
 
@@ -69,7 +75,8 @@ export const AppSettings = {
 export const AuditLog = {
   list: () => apiRequest("/AuditLog"),
   getById: (id) => apiRequest(`/AuditLog/${id}`),
-  // create/update/delete meist nicht sinnvoll für Logs
+  create: (data) => apiRequest("/AuditLog", { method: "POST", body: JSON.stringify(data) }),
+  // update/delete meist nicht sinnvoll für Logs
 };
 
 // ==================== User/Auth ====================

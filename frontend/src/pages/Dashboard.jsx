@@ -197,7 +197,7 @@ function DashboardContent() {
     }
   };
 
-  const formatCurrency = (value) => `€ ${(value || 0).toFixed(2)}`;
+  const formatCurrency = (value) => `€ ${(Number(value) || 0).toFixed(2)}`;
 
   // Bereite Daten für das Balkendiagramm vor (Top 10 Produkte)
   const chartData = productSales.slice(0, 10).map(product => ({
@@ -344,7 +344,7 @@ function DashboardContent() {
                           {transaction.product_name || 'Unbekannt'}
                       </TableCell>
                       <TableCell className={`text-right font-semibold ${(transaction.total_price || 0) > 0 ? 'text-red-600' : 'text-green-600'}`}>
-                        € {(transaction.total_price || 0).toFixed(2)}
+                        € {(Number(transaction.total_price) || 0).toFixed(2)}
                       </TableCell>
                       <TableCell className="text-center">
                           {(transaction.total_price || 0) > 0 && !transaction.is_cancelled && !transaction.is_storno ? (
@@ -359,7 +359,7 @@ function DashboardContent() {
                                       <AlertDialogHeader>
                                           <AlertDialogTitle>Transaktion stornieren?</AlertDialogTitle>
                                           <AlertDialogDescription>
-                                              Möchten Sie den Kauf von "{transaction.product_name || 'Unbekannt'}" ({transaction.quantity || 0}x) durch {transaction.participant_name || 'Unbekannt'} für € {(transaction.total_price || 0).toFixed(2)} wirklich stornieren? Das Guthaben wird zurückgebucht und der Lagerbestand angepasst.
+                                              Möchten Sie den Kauf von "{transaction.product_name || 'Unbekannt'}" ({transaction.quantity || 0}x) durch {transaction.participant_name || 'Unbekannt'} für € {(Number(transaction.total_price) || 0).toFixed(2)} wirklich stornieren? Das Guthaben wird zurückgebucht und der Lagerbestand angepasst.
                                           </AlertDialogDescription>
                                       </AlertDialogHeader>
                                       <AlertDialogFooter>

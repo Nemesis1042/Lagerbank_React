@@ -53,6 +53,12 @@ app.get("/api/entities/Participant", async (req, res) => {
       params.push(req.query.camp_id);
     }
 
+    // Filter by is_staff if provided
+    if (req.query.is_staff !== undefined) {
+      query += " AND is_staff = ?";
+      params.push(req.query.is_staff === 'true' ? 1 : 0);
+    }
+
     // Filter by is_checked_in if provided
     if (req.query.is_checked_in !== undefined) {
       query += " AND is_checked_in = ?";
@@ -61,8 +67,19 @@ app.get("/api/entities/Participant", async (req, res) => {
 
     console.log(`[${new Date().toISOString()}] Executing query: ${query}`, params);
     const [rows] = await pool.query(query, params);
-    console.log(`[${new Date().toISOString()}] Query result: ${rows.length} rows returned`);
-    res.json(rows);
+    
+    // Convert numeric fields from strings to numbers
+    const processedRows = rows.map(row => ({
+      ...row,
+      balance: parseFloat(row.balance) || 0,
+      initial_balance: parseFloat(row.initial_balance) || 0,
+      tn_id: row.tn_id ? parseInt(row.tn_id) : null,
+      is_staff: Boolean(row.is_staff),
+      is_checked_in: Boolean(row.is_checked_in)
+    }));
+    
+    console.log(`[${new Date().toISOString()}] Query result: ${processedRows.length} rows returned`);
+    res.json(processedRows);
   } catch (error) {
     console.error(`[${new Date().toISOString()}] Database error in Participant GET:`, error);
     res.status(500).json({ error: error.message, stack: error.stack });
@@ -75,7 +92,19 @@ app.post("/api/entities/Participant", async (req, res) => {
     console.log(`[${new Date().toISOString()}] Executing query: INSERT INTO Participant SET ?`, [data]);
     const [result] = await pool.query("INSERT INTO Participant SET ?", [data]);
     console.log(`[${new Date().toISOString()}] Insert result: ID ${result.insertId} created`);
-    res.json({ id: result.insertId, created: true });
+    
+    // Return the created participant with proper data types
+    const createdParticipant = {
+      id: result.insertId,
+      ...data,
+      balance: parseFloat(data.balance) || 0,
+      initial_balance: parseFloat(data.initial_balance) || 0,
+      tn_id: data.tn_id ? parseInt(data.tn_id) : null,
+      is_staff: Boolean(data.is_staff),
+      is_checked_in: Boolean(data.is_checked_in)
+    };
+    
+    res.json(createdParticipant);
   } catch (error) {
     console.error(`[${new Date().toISOString()}] Database error in Participant POST:`, error);
     res.status(500).json({ error: error.message, stack: error.stack });
@@ -127,7 +156,19 @@ app.post("/api/entities/Participant/bulk", async (req, res) => {
     for (const participant of participants) {
       try {
         const [result] = await pool.query("INSERT INTO Participant SET ?", [participant]);
-        results.push({ id: result.insertId, ...participant });
+        
+        // Return properly formatted participant data
+        const createdParticipant = {
+          id: result.insertId,
+          ...participant,
+          balance: parseFloat(participant.balance) || 0,
+          initial_balance: parseFloat(participant.initial_balance) || 0,
+          tn_id: participant.tn_id ? parseInt(participant.tn_id) : null,
+          is_staff: Boolean(participant.is_staff),
+          is_checked_in: Boolean(participant.is_checked_in)
+        };
+        
+        results.push(createdParticipant);
         console.log(`[${new Date().toISOString()}] Bulk insert: Created participant ${participant.name} with ID ${result.insertId}`);
       } catch (error) {
         console.error(`[${new Date().toISOString()}] Error inserting participant ${participant.name}:`, error);
@@ -148,8 +189,16 @@ app.get("/api/entities/Product", async (req, res) => {
   try {
     console.log(`[${new Date().toISOString()}] Executing query: SELECT * FROM Product`);
     const [rows] = await pool.query("SELECT * FROM Product");
-    console.log(`[${new Date().toISOString()}] Query result: ${rows.length} rows returned`);
-    res.json(rows);
+    
+    // Convert numeric fields from strings to numbers
+    const processedRows = rows.map(row => ({
+      ...row,
+      price: parseFloat(row.price) || 0,
+      stock: parseInt(row.stock) || 0
+    }));
+    
+    console.log(`[${new Date().toISOString()}] Query result: ${processedRows.length} rows returned`);
+    res.json(processedRows);
   } catch (error) {
     console.error(`[${new Date().toISOString()}] Database error in Product GET:`, error);
     res.status(500).json({ error: error.message, stack: error.stack });
@@ -202,12 +251,46 @@ app.delete("/api/entities/Product/:id", async (req, res) => {
 // ==================== Transaction ====================
 app.get("/api/entities/Transaction", async (req, res) => {
   try {
-    console.log(`[${new Date().toISOString()}] Executing query: SELECT * FROM Transaction`);
-    const [rows] = await pool.query("SELECT * FROM Transaction");
+    console.log(`[${new Date().toISOString()}] Transaction GET - Query params:`, req.query);
+    
+    let query = "SELECT * FROM Transaction WHERE 1=1";
+    const params = [];
+
+    // Filter by participant_id if provided
+    if (req.query.participant_id) {
+      query += " AND participant_id = ?";
+      params.push(req.query.participant_id);
+      console.log(`[${new Date().toISOString()}] Added participant_id filter: ${req.query.participant_id}`);
+    }
+
+    // Filter by camp_id if provided
+    if (req.query.camp_id) {
+      query += " AND camp_id = ?";
+      params.push(req.query.camp_id);
+      console.log(`[${new Date().toISOString()}] Added camp_id filter: ${req.query.camp_id}`);
+    }
+
+    console.log(`[${new Date().toISOString()}] Final query: ${query}`);
+    console.log(`[${new Date().toISOString()}] Query params:`, params);
+    
+    const [rows] = await pool.query(query, params);
     console.log(`[${new Date().toISOString()}] Query result: ${rows.length} rows returned`);
     res.json(rows);
   } catch (error) {
     console.error(`[${new Date().toISOString()}] Database error in Transaction GET:`, error);
+    res.status(500).json({ error: error.message, stack: error.stack });
+  }
+});
+
+app.post("/api/entities/Transaction", async (req, res) => {
+  try {
+    const data = req.body;
+    console.log(`[${new Date().toISOString()}] Executing query: INSERT INTO Transaction SET ?`, [data]);
+    const [result] = await pool.query("INSERT INTO Transaction SET ?", [data]);
+    console.log(`[${new Date().toISOString()}] Insert result: ID ${result.insertId} created`);
+    res.json({ id: result.insertId, created: true });
+  } catch (error) {
+    console.error(`[${new Date().toISOString()}] Database error in Transaction POST:`, error);
     res.status(500).json({ error: error.message, stack: error.stack });
   }
 });
@@ -337,6 +420,19 @@ app.get("/api/entities/AuditLog", async (req, res) => {
     res.json(rows);
   } catch (error) {
     console.error(`[${new Date().toISOString()}] Database error in AuditLog GET:`, error);
+    res.status(500).json({ error: error.message, stack: error.stack });
+  }
+});
+
+app.post("/api/entities/AuditLog", async (req, res) => {
+  try {
+    const data = req.body;
+    console.log(`[${new Date().toISOString()}] Executing query: INSERT INTO AuditLog SET ?`, [data]);
+    const [result] = await pool.query("INSERT INTO AuditLog SET ?", [data]);
+    console.log(`[${new Date().toISOString()}] Insert result: ID ${result.insertId} created`);
+    res.json({ id: result.insertId, created: true });
+  } catch (error) {
+    console.error(`[${new Date().toISOString()}] Database error in AuditLog POST:`, error);
     res.status(500).json({ error: error.message, stack: error.stack });
   }
 });

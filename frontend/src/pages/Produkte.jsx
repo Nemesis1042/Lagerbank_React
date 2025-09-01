@@ -271,7 +271,7 @@ function ProdukteContent() {
                         <span className="text-3xl">{product.icon}</span>
                         <div>
                             <CardTitle className="text-lg">{product.name}</CardTitle>
-                            <p className="text-sm text-gray-500">€ {product.price.toFixed(2)}</p>
+                            <p className="text-sm text-gray-500">€ {(Number(product.price) || 0).toFixed(2)}</p>
                         </div>
                     </div>
                     {getStockBadge(product.stock)}
@@ -335,7 +335,7 @@ function ProdukteContent() {
                 <TableRow key={product.id} className="themed-list-item">
                   <TableCell className="text-2xl">{product.icon}</TableCell>
                   <TableCell className="font-medium">{product.name}</TableCell>
-                  <TableCell>€ {product.price.toFixed(2)}</TableCell>
+                  <TableCell>€ {(Number(product.price) || 0).toFixed(2)}</TableCell>
                   <TableCell className="font-mono text-sm">{product.barcode || '—'}</TableCell>
                   <TableCell>{getStockBadge(product.stock)}</TableCell>
                   <TableCell className="space-x-2">
