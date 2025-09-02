@@ -6,7 +6,16 @@ import path from 'path'
 export default defineConfig({
   plugins: [react()],
   server: {
-    allowedHosts: true
+    host: 'localhost',
+    port: 5173,
+    strictPort: true,
+    hmr: {
+      port: 5173,
+      host: 'localhost'
+    },
+    watch: {
+      usePolling: true
+    }
   },
   resolve: {
     alias: {
@@ -21,4 +30,18 @@ export default defineConfig({
       },
     },
   },
-}) 
+  build: {
+    sourcemap: true,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          vendor: ['react', 'react-dom'],
+          router: ['react-router-dom']
+        }
+      }
+    }
+  },
+  css: {
+    devSourcemap: true
+  }
+})

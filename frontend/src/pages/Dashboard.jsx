@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Participant } from '@/api/entities';
 import { Product } from '@/api/entities';
@@ -80,7 +81,7 @@ function DashboardContent() {
       const [participantsData, products, transactionsData] = await Promise.all([
         Participant.filter({ camp_id: currentCampId }),
         Product.list(),
-        Transaction.filter({ camp_id: currentCampId }, '-created_date', 50), // Lade die letzten 50 Transaktionen
+        Transaction.filter({ camp_id: currentCampId }, '-created_at', 50), // Lade die letzten 50 Transaktionen
       ]);
 
       if (!isMounted.current) return;
@@ -179,7 +180,7 @@ function DashboardContent() {
             is_storno: true, // Mark as storno transaction
             original_transaction_id: transaction.id,
             is_cancelled: false, // A storno booking itself cannot be cancelled
-            created_date: new Date().toISOString(), // Use current date for the storno transaction
+            created_at: new Date().toISOString(), // Use current date for the storno transaction
         });
 
         // 3. Markiere Original-Transaktion als storniert
@@ -226,7 +227,7 @@ function DashboardContent() {
     return (
       <div className="space-y-6">
         <h1 className="text-3xl font-bold">Dashboard</h1>
-        <Alert variant="destructive">
+        <Alert variant="destructive" dismissible>
           <AlertTriangle className="h-4 w-4" />
           <AlertTitle>Kein aktives Lager</AlertTitle>
           <AlertDescription>
@@ -336,7 +337,7 @@ function DashboardContent() {
                   return (
                     <TableRow key={transaction.id} className={`themed-list-item ${transaction.is_cancelled || transaction.is_storno ? 'opacity-50' : ''}`}>
                       <TableCell className="text-xs">
-                        {transaction.created_date ? new Date(transaction.created_date).toLocaleTimeString('de-DE') : 'N/A'}
+                        {transaction.created_at ? new Date(transaction.created_at).toLocaleTimeString('de-DE') : 'N/A'}
                       </TableCell>
                       <TableCell>{transaction.participant_name || 'Unbekannt'}</TableCell>
                       <TableCell>

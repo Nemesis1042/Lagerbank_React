@@ -50,8 +50,8 @@ function CheckoutModal({ participant, onFinished }) {
         // Gruppiere Käufe nach Produkt
         const grouped = {};
         purchases.forEach(t => {
-          // Ignoriere spezielle Transaktionstypen
-          if (t.product_id === 'TOPUP' || t.product_id === 'INITIAL') return;
+          // Ignoriere spezielle Transaktionstypen (NULL product_id)
+          if (t.product_id === null) return;
 
           const key = t.product_name;
           if (!grouped[key]) {
@@ -356,20 +356,12 @@ function CheckoutContent() {
         return;
       }
 
-      // Get all participants for the camp (both checked in and not checked in)
-      const allParticipants = await Participant.filter({ 
-        camp_id: currentCampId 
+      // Lade nur eingecheckte Teilnehmer des aktiven Lagers (keine Mitarbeiter)
+      const data = await Participant.filter({ 
+        camp_id: currentCampId,
+        is_staff: false,
+        is_checked_in: true
       });
-      
-      console.log('All participants for camp:', allParticipants);
-      console.log('Participants with is_checked_in true:', allParticipants.filter(p => p.is_checked_in === true));
-      console.log('Participants with is_checked_in false:', allParticipants.filter(p => p.is_checked_in === false));
-      
-      // For now, show all participants to debug the issue
-      // Later we can filter only checked-in participants
-      const data = allParticipants;
-      
-      console.log('Showing all participants for debugging:', data);
       
       if (!isMountedRef.current) return; // Prevent state updates if component unmounted
       
@@ -458,7 +450,7 @@ function CheckoutContent() {
     return (
       <div className="space-y-6">
         <h1 className="text-3xl font-bold">Check-Out</h1>
-        <Alert variant="destructive">
+        <Alert variant="destructive" dismissible>
           <AlertTriangle className="h-4 w-4" />
           <AlertTitle>Kein aktives Lager</AlertTitle>
           <AlertDescription>

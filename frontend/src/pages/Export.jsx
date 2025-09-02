@@ -91,7 +91,7 @@ function ExportContent() {
       const csvData = [
         'Datum,Teilnehmer,Produkt,Menge,Einzelpreis,Gesamtpreis,Typ',
         ...transactions.map(t => {
-          const date = new Date(t.created_date).toLocaleDateString('de-DE');
+          const date = new Date(t.created_at).toLocaleDateString('de-DE');
           const unitPrice = t.quantity > 0 ? Math.abs(t.total_price) / t.quantity : 0;
           const type = t.total_price < 0 ? 'Einzahlung' : 'Kauf';
           return `${date},"${t.participant_name}","${t.product_name}",${t.quantity},${unitPrice.toFixed(2)},${Math.abs(t.total_price).toFixed(2)},${type}`;

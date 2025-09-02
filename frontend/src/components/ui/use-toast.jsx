@@ -2,7 +2,8 @@
 import { useState, useEffect, createContext, useContext } from "react";
 
 const TOAST_LIMIT = 20;
-const TOAST_REMOVE_DELAY = 1000000;
+const TOAST_REMOVE_DELAY = 10000; // 10 Sekunden für normale Toasts
+const ERROR_TOAST_REMOVE_DELAY = 15000; // 15 Sekunden für Error-Toasts
 
 const actionTypes = {
   ADD_TOAST: "ADD_TOAST",
@@ -20,7 +21,7 @@ function genId() {
 
 const toastTimeouts = new Map();
 
-const addToRemoveQueue = (toastId) => {
+const addToRemoveQueue = (toastId, delay = TOAST_REMOVE_DELAY) => {
   if (toastTimeouts.has(toastId)) {
     return;
   }
@@ -31,7 +32,7 @@ const addToRemoveQueue = (toastId) => {
       type: actionTypes.REMOVE_TOAST,
       toastId,
     });
-  }, TOAST_REMOVE_DELAY);
+  }, delay);
 
   toastTimeouts.set(toastId, timeout);
 };
@@ -122,17 +123,28 @@ function toast({ ...props }) {
   const dismiss = () =>
     dispatch({ type: actionTypes.DISMISS_TOAST, toastId: id });
 
+  // Bestimme das Delay basierend auf dem Toast-Typ
+  const isError = props.variant === 'destructive' || 
+                  props.title?.toLowerCase().includes('fehler') ||
+                  props.title?.toLowerCase().includes('error') ||
+                  props.description?.toLowerCase().includes('fehler') ||
+                  props.description?.toLowerCase().includes('error');
+  
+  const delay = isError ? ERROR_TOAST_REMOVE_DELAY : TOAST_REMOVE_DELAY;
+
   dispatch({
     type: actionTypes.ADD_TOAST,
     toast: {
       ...props,
       id,
       open: true,
-      onOpenChange: (open) => {
-        if (!open) dismiss();
-      },
     },
   });
+
+  // Automatisches Entfernen nach dem entsprechenden Delay
+  setTimeout(() => {
+    dispatch({ type: actionTypes.DISMISS_TOAST, toastId: id });
+  }, delay);
 
   return {
     id,
@@ -161,4 +173,9 @@ function useToast() {
   };
 }
 
-export { useToast, toast }; 
+// Hilfsfunktionen für verschiedene Toast-Typen
+toast.success = (props) => toast({ ...props, variant: 'default' });
+toast.error = (props) => toast({ ...props, variant: 'destructive' });
+toast.info = (props) => toast({ ...props, variant: 'default' });
+
+export { useToast, toast };

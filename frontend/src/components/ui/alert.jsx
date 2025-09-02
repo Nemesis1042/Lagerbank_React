@@ -1,5 +1,6 @@
 import * as React from "react"
 import { cva } from "class-variance-authority";
+import { X } from "lucide-react"
 
 import { cn } from "@/lib/utils"
 
@@ -19,13 +20,40 @@ const alertVariants = cva(
   }
 )
 
-const Alert = React.forwardRef(({ className, variant, ...props }, ref) => (
-  <div
-    ref={ref}
-    role="alert"
-    className={cn(alertVariants({ variant }), className)}
-    {...props} />
-))
+const Alert = React.forwardRef(({ className, variant, dismissible, onDismiss, children, ...props }, ref) => {
+  const [isVisible, setIsVisible] = React.useState(true);
+
+  const handleDismiss = () => {
+    setIsVisible(false);
+    if (onDismiss) {
+      onDismiss();
+    }
+  };
+
+  if (!isVisible) {
+    return null;
+  }
+
+  return (
+    <div
+      ref={ref}
+      role="alert"
+      className={cn(alertVariants({ variant }), dismissible && "pr-10", className)}
+      {...props}
+    >
+      {children}
+      {dismissible && (
+        <button
+          onClick={handleDismiss}
+          className="absolute right-2 top-2 rounded-md p-1 text-foreground/50 opacity-70 transition-opacity hover:text-foreground hover:opacity-100 focus:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 z-10"
+          aria-label="Schließen"
+        >
+          <X className="h-4 w-4" />
+        </button>
+      )}
+    </div>
+  );
+})
 Alert.displayName = "Alert"
 
 const AlertTitle = React.forwardRef(({ className, ...props }, ref) => (

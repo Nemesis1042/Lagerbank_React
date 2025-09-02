@@ -36,9 +36,20 @@ export const Product = {
 // ==================== Transaction ====================
 export const Transaction = {
   list: () => apiRequest("/Transaction"),
-  filter: (params) => {
-    const queryString = new URLSearchParams(params).toString();
-    return apiRequest(`/Transaction?${queryString}`);
+  filter: (params, ordering, limit) => {
+    const queryParams = new URLSearchParams(params);
+    
+    // Add ordering parameter if provided
+    if (ordering) {
+      queryParams.append(ordering, ''); // Add the ordering parameter (e.g., '-created_at')
+    }
+    
+    // Add limit parameter if provided
+    if (limit) {
+      queryParams.append(limit.toString(), ''); // Add the limit as a parameter
+    }
+    
+    return apiRequest(`/Transaction?${queryParams.toString()}`);
   },
   getById: (id) => apiRequest(`/Transaction/${id}`),
   create: (data) => apiRequest("/Transaction", { method: "POST", body: JSON.stringify(data) }),

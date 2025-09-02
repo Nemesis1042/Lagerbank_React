@@ -4,6 +4,8 @@ import Dashboard from "./Dashboard.jsx";
 
 import Teilnehmer from "./Teilnehmer.jsx";
 
+import Checkin from "./Checkin.jsx";
+
 import Kasse from "./Kasse.jsx";
 
 import Checkout from "./Checkout.jsx";
@@ -31,6 +33,8 @@ const PAGES = {
     Dashboard: Dashboard,
     
     Teilnehmer: Teilnehmer,
+    
+    Checkin: Checkin,
     
     Kasse: Kasse,
     
@@ -82,6 +86,8 @@ function PagesContent() {
                 <Route path="/Dashboard" element={<Dashboard />} />
                 
                 <Route path="/Teilnehmer" element={<Teilnehmer />} />
+                
+                <Route path="/Checkin" element={<Checkin />} />
                 
                 <Route path="/Kasse" element={<Kasse />} />
                 

@@ -270,6 +270,24 @@ app.get("/api/entities/Transaction", async (req, res) => {
       console.log(`[${new Date().toISOString()}] Added camp_id filter: ${req.query.camp_id}`);
     }
 
+    // Handle ordering - check for URL parameters that start with '-' for descending order
+    const urlParams = new URLSearchParams(req.url.split('?')[1] || '');
+    const allParams = Array.from(urlParams.keys());
+    const orderParam = allParams.find(param => param.startsWith('-'));
+    
+    if (orderParam) {
+      const field = orderParam.substring(1); // Remove the '-' prefix
+      query += ` ORDER BY ${field} DESC`;
+      console.log(`[${new Date().toISOString()}] Added ordering: ${field} DESC`);
+    }
+
+    // Handle limit parameter (third parameter in filter calls)
+    const limitParam = allParams.find(param => !isNaN(parseInt(param)) && param !== req.query.participant_id && param !== req.query.camp_id);
+    if (limitParam) {
+      query += ` LIMIT ${parseInt(limitParam)}`;
+      console.log(`[${new Date().toISOString()}] Added limit: ${limitParam}`);
+    }
+
     console.log(`[${new Date().toISOString()}] Final query: ${query}`);
     console.log(`[${new Date().toISOString()}] Query params:`, params);
     

@@ -1,0 +1,230 @@
+# Schaltpläne für Arduino Display System
+
+## Arduino Uno/Nano + TM1637 4-Digit Display (EMPFOHLEN)
+
+```
+Arduino Uno/Nano          TM1637 4-Digit Display
+┌─────────────────┐      ┌─────────────────┐
+│                 │      │                 │
+│             5V  ├──────┤ VCC             │
+│            GND  ├──────┤ GND             │
+│          Pin 2  ├──────┤ CLK             │
+│          Pin 3  ├──────┤ DIO             │
+│                 │      │                 │
+│         USB ────┼──────┤ Computer        │
+│                 │      │                 │
+└─────────────────┘      └─────────────────┘
+```
+
+## ESP32 + TM1637 4-Digit Display (EMPFOHLEN)
+
+```
+ESP32                     TM1637 4-Digit Display
+┌─────────────────┐      ┌─────────────────┐
+│                 │      │                 │
+│            5V   ├──────┤ VCC             │
+│           GND   ├──────┤ GND             │
+│         GPIO18  ├──────┤ CLK             │
+│         GPIO19  ├──────┤ DIO             │
+│                 │      │                 │
+│      USB-C ─────┼──────┤ Computer        │
+│                 │      │                 │
+└─────────────────┘      └─────────────────┘
+```
+
+## Arduino Uno/Nano + LCD Display (16x2 mit I2C)
+
+```
+Arduino Uno/Nano          LCD Display (I2C)
+┌─────────────────┐      ┌─────────────────┐
+│                 │      │                 │
+│             5V  ├──────┤ VCC             │
+│            GND  ├──────┤ GND             │
+│             A4  ├──────┤ SDA             │
+│             A5  ├──────┤ SCL             │
+│                 │      │                 │
+│         USB ────┼──────┤ Computer        │
+│                 │      │                 │
+└─────────────────┘      └─────────────────┘
+```
+
+## Arduino Uno/Nano + OLED Display (128x64 mit I2C)
+
+```
+Arduino Uno/Nano          OLED Display (I2C)
+┌─────────────────┐      ┌─────────────────┐
+│                 │      │                 │
+│           3.3V  ├──────┤ VCC             │
+│            GND  ├──────┤ GND             │
+│             A4  ├──────┤ SDA             │
+│             A5  ├──────┤ SCL             │
+│                 │      │                 │
+│         USB ────┼──────┤ Computer        │
+│                 │      │                 │
+└─────────────────┘      └─────────────────┘
+```
+
+## ESP32 + LCD Display (16x2 mit I2C)
+
+```
+ESP32                     LCD Display (I2C)
+┌─────────────────┐      ┌─────────────────┐
+│                 │      │                 │
+│            5V   ├──────┤ VCC             │
+│           GND   ├──────┤ GND             │
+│         GPIO21  ├──────┤ SDA             │
+│         GPIO22  ├──────┤ SCL             │
+│                 │      │                 │
+│      USB-C ─────┼──────┤ Computer        │
+│                 │      │                 │
+└─────────────────┘      └─────────────────┘
+```
+
+## ESP32 + OLED Display (128x64 mit I2C)
+
+```
+ESP32                     OLED Display (I2C)
+┌─────────────────┐      ┌─────────────────┐
+│                 │      │                 │
+│          3.3V   ├──────┤ VCC             │
+│           GND   ├──────┤ GND             │
+│         GPIO21  ├──────┤ SDA             │
+│         GPIO22  ├──────┤ SCL             │
+│                 │      │                 │
+│      USB-C ─────┼──────┤ Computer        │
+│                 │      │                 │
+└─────────────────┘      └─────────────────┘
+```
+
+## Breadboard Layout Beispiel (Arduino Uno + LCD)
+
+```
+Breadboard Layout:
+                    ┌─────────────────────────────────┐
+                    │  +  +  +  +  +  +  +  +  +  +  │ <- 5V Rail
+                    │  -  -  -  -  -  -  -  -  -  -  │ <- GND Rail
+                    └─────────────────────────────────┘
+                              │     │     │     │
+                              │     │     │     │
+Arduino Uno:                  │     │     │     │
+┌─────────────┐              │     │     │     │
+│         5V  ├──────────────┘     │     │     │
+│        GND  ├────────────────────┘     │     │
+│         A4  ├──────────────────────────┘     │
+│         A5  ├────────────────────────────────┘
+│             │
+│      USB ───┼─── Computer
+└─────────────┘
+
+LCD Display:
+┌─────────────┐
+│        VCC  ├─── zu 5V Rail
+│        GND  ├─── zu GND Rail  
+│        SDA  ├─── zu A4
+│        SCL  ├─── zu A5
+└─────────────┘
+```
+
+## Breadboard Layout Beispiel (Arduino Uno + TM1637) - EMPFOHLEN
+
+```
+Breadboard Layout:
+                    ┌─────────────────────────────────┐
+                    │  +  +  +  +  +  +  +  +  +  +  │ <- 5V Rail
+                    │  -  -  -  -  -  -  -  -  -  -  │ <- GND Rail
+                    └─────────────────────────────────┘
+                              │     │     │     │
+                              │     │     │     │
+Arduino Uno:                  │     │     │     │
+┌─────────────┐              │     │     │     │
+│         5V  ├──────────────┘     │     │     │
+│        GND  ├────────────────────┘     │     │
+│      Pin 2  ├──────────────────────────┘     │
+│      Pin 3  ├────────────────────────────────┘
+│             │
+│      USB ───┼─── Computer
+└─────────────┘
+
+TM1637 Display:
+┌─────────────┐
+│        VCC  ├─── zu 5V Rail
+│        GND  ├─── zu GND Rail  
+│        CLK  ├─── zu Pin 2
+│        DIO  ├─── zu Pin 3
+└─────────────┘
+```
+
+## Pin-Belegung Übersicht
+
+### TM1637 4-Digit Display (EMPFOHLEN)
+#### Arduino Uno/Nano
+- VCC: 5V
+- GND: GND
+- CLK: Pin 2
+- DIO: Pin 3
+
+#### ESP32
+- VCC: 5V
+- GND: GND
+- CLK: GPIO 18
+- DIO: GPIO 19
+
+### I2C Displays (LCD/OLED)
+#### Arduino Uno/Nano
+- VCC: 5V oder 3.3V (je nach Display)
+- GND: GND
+- SDA: A4 (Pin 18)
+- SCL: A5 (Pin 19)
+
+#### Arduino Mega
+- VCC: 5V oder 3.3V
+- GND: GND
+- SDA: Pin 20
+- SCL: Pin 21
+
+#### ESP32
+- VCC: 3.3V (für OLED) oder 5V (für LCD)
+- GND: GND
+- SDA: GPIO21
+- SCL: GPIO22
+
+#### ESP8266 (NodeMCU)
+- VCC: 3.3V
+- GND: GND
+- SDA: D2 (GPIO4)
+- SCL: D1 (GPIO5)
+
+## Häufige I2C Adressen
+
+### LCD Displays (mit I2C Backpack)
+- 0x27 (häufigste Adresse)
+- 0x3F
+- 0x20
+- 0x38
+
+### OLED Displays (SSD1306)
+- 0x3C (häufigste Adresse)
+- 0x3D
+
+### TM1637 Display
+- Keine I2C Adresse erforderlich (direkte Pin-Kommunikation)
+- Nur CLK und DIO Pins benötigt
+
+## Troubleshooting Hardware
+
+### Kein Display Output
+1. Stromversorgung prüfen (LED auf I2C Backpack leuchtet?)
+2. Verkabelung prüfen (SDA/SCL vertauscht?)
+3. I2C Adresse mit Scanner prüfen
+4. Pull-up Widerstände (meist bereits auf Board vorhanden)
+
+### Falsche Zeichen
+1. Kontrast einstellen (Potentiometer auf I2C Backpack)
+2. Stromversorgung stabil? (USB Hub verwenden)
+3. Kabel zu lang? (max. 1-2 Meter für I2C)
+
+### Verbindung bricht ab
+1. USB Kabel prüfen (Daten + Strom)
+2. Treiber installiert?
+3. Andere USB Geräte trennen
+4. Anderen USB Port verwenden

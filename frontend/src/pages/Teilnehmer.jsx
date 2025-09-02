@@ -9,7 +9,7 @@ import { PlusCircle, Edit, DollarSign, Users, Search, X, UserPlus, AlertTriangle
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -47,13 +47,14 @@ function TopUpDialog({ participant, onFinished, activeCamp }) {
             // Create a negative transaction (money added, not spent)
             await Transaction.create({
                 participant_id: participant.id,
-                product_id: 'TOPUP', // Special ID for top-ups
+                product_id: null, // NULL for special transactions
                 camp_id: activeCamp.id,
                 quantity: 1,
                 total_price: -amount, // Negative price = money added
                 participant_name: participant.name,
                 product_name: 'Guthaben-Aufladung',
-                camp_name: activeCamp.name
+                camp_name: activeCamp.name,
+                created_at: new Date().toISOString()
             });
 
             toast({ title: "Erfolg", description: `€ ${amount.toFixed(2)} wurden ${participant.name} gutgeschrieben.`});
@@ -65,7 +66,12 @@ function TopUpDialog({ participant, onFinished, activeCamp }) {
 
     return (
         <>
-            <DialogHeader><DialogTitle>Guthaben aufladen für {participant.name}</DialogTitle></DialogHeader>
+            <DialogHeader>
+                <DialogTitle>Guthaben aufladen für {participant.name}</DialogTitle>
+                <DialogDescription>
+                    Fügen Sie Guthaben zum Teilnehmerkonto hinzu. Der Betrag wird sofort verfügbar sein.
+                </DialogDescription>
+            </DialogHeader>
             <div className="py-4 space-y-2">
                 <p>Aktuelles Guthaben: € {formatBalance(participant.balance)}</p>
                 <Label htmlFor="topup-amount">Betrag zum Aufladen</Label>
@@ -133,7 +139,7 @@ function NFCReader({ onNFCRead, placeholder }) {
             <Button onClick={handleSimulateScan} disabled={isScanning} className="w-full">
                 {isScanning ? 'Scannen läuft...' : 'NFC-Tag scannen'}
             </Button>
-            {error && <Alert variant="destructive"><AlertDescription>{error}</AlertDescription></Alert>}
+            {error && <Alert variant="destructive" dismissible><AlertDescription>{error}</AlertDescription></Alert>}
             {scannedData && (
                 <Alert><AlertDescription>Erfolgreich gescannt: <strong>{scannedData}</strong></AlertDescription></Alert>
             )}
@@ -182,8 +188,7 @@ function TeilnehmerContent() {
           parseFloat(t.total_price) > 0 && 
           !t.is_cancelled && 
           !t.is_storno &&
-          t.product_id !== 'TOPUP' && 
-          t.product_id !== 'INITIAL'
+          t.product_id !== null // Nur echte Käufe (nicht NULL für spezielle Transaktionen)
         ); // nur echte Käufe
         
         // Debug: Logge die Käufe für Troubleshooting
@@ -192,7 +197,7 @@ function TeilnehmerContent() {
         // Berechne 'totalSpent' und stelle sicher, dass alle Werte Zahlen sind
         const totalSpent = purchases.reduce((sum, t) => {
           const price = parseFloat(t.total_price) || 0;
-          return sum + price;
+          return Math.round((sum + price) * 100) / 100; // Fix floating point precision
         }, 0);
         
         console.log(`${participant.name} - Gesamtausgaben: ${totalSpent}`);
@@ -201,12 +206,12 @@ function TeilnehmerContent() {
         const totalDeposited = parseFloat(participant.initial_balance) || 0;
         
         // Durchschnittliche tägliche Ausgaben berechnen
-        const dailySpending = daysSinceStart > 0 ? totalSpent / daysSinceStart : 0;
+        const dailySpending = daysSinceStart > 0 ? Math.round((totalSpent / daysSinceStart) * 100) / 100 : 0;
         
         // Prognose für verbleibende Tage
-        const projectedRemainingSpending = dailySpending * remainingDays;
-        const projectedTotalSpending = totalSpent + projectedRemainingSpending;
-        const projectedRemainingBalance = totalDeposited - projectedTotalSpending;
+        const projectedRemainingSpending = Math.round((dailySpending * remainingDays) * 100) / 100;
+        const projectedTotalSpending = Math.round((totalSpent + projectedRemainingSpending) * 100) / 100;
+        const projectedRemainingBalance = Math.round((totalDeposited - projectedTotalSpending) * 100) / 100;
         
         prognoses[participant.id] = {
           dailySpending,
@@ -460,6 +465,7 @@ function TeilnehmerContent() {
             dataToSave.balance = initialBalance;
             dataToSave.camp_id = activeCamp?.id;
             dataToSave.camp_name = activeCamp?.name;
+            dataToSave.is_checked_in = true; // Neue Teilnehmer sind standardmäßig eingecheckt
             
             const newParticipant = await Participant.create(dataToSave);
             
@@ -467,13 +473,14 @@ function TeilnehmerContent() {
             if (initialBalance > 0 && activeCamp) {
               await Transaction.create({
                 participant_id: newParticipant.id,
-                product_id: 'INITIAL', // Special ID for initial balance
+                product_id: null, // NULL for special transactions
                 camp_id: activeCamp.id,
                 quantity: 1,
                 total_price: -initialBalance, // Negative = money added
                 participant_name: newParticipant.name,
                 product_name: 'Startguthaben',
-                camp_name: activeCamp.name
+                camp_name: activeCamp.name,
+                created_at: new Date().toISOString()
               });
             }
             toast({ title: "Erfolg", description: "Neuer Teilnehmer erstellt." });
@@ -489,6 +496,12 @@ function TeilnehmerContent() {
       <>
         <DialogHeader>
           <DialogTitle>{participant && participant.id ? 'Teilnehmer bearbeiten' : 'Neuen Teilnehmer anlegen'}</DialogTitle>
+          <DialogDescription>
+            {participant && participant.id 
+              ? 'Bearbeiten Sie die Teilnehmerdaten. Änderungen werden sofort gespeichert.'
+              : 'Erstellen Sie einen neuen Teilnehmer für das aktive Lager.'
+            }
+          </DialogDescription>
         </DialogHeader>
         <div className="grid gap-4 py-4">
           {activeCamp && (
@@ -657,6 +670,7 @@ function TeilnehmerContent() {
             initial_balance: 0,
             balance: 0,
             is_staff: isStaffDefault,
+            is_checked_in: true, // Neue Teilnehmer sind standardmäßig eingecheckt
             camp_id: activeCamp.id,
             camp_name: activeCamp.name
           };
@@ -681,6 +695,9 @@ function TeilnehmerContent() {
       <>
         <DialogHeader>
           <DialogTitle>Teilnehmer per Textfeld importieren</DialogTitle>
+          <DialogDescription>
+            Importieren Sie mehrere Teilnehmer gleichzeitig durch Eingabe ihrer Namen, getrennt durch Semikolons.
+          </DialogDescription>
         </DialogHeader>
         <div className="py-4 space-y-4">
           {activeCamp && (
@@ -746,7 +763,7 @@ function TeilnehmerContent() {
     return (
       <div className="space-y-6">
         <h1 className="text-3xl font-bold">Teilnehmer verwalten</h1>
-        <Alert variant="destructive">
+        <Alert variant="destructive" dismissible>
           <AlertTriangle className="h-4 w-4" />
           <AlertTitle>Kein aktives Lager</AlertTitle>
           <AlertDescription>
@@ -767,6 +784,24 @@ function TeilnehmerContent() {
           </p>
         </div>
         <div className="flex gap-2 flex-wrap">
+            <Button 
+              variant="outline" 
+              onClick={async () => {
+                try {
+                  // Alle Teilnehmer des aktuellen Lagers auf eingecheckt setzen
+                  const updates = participants.map(p => 
+                    Participant.update(p.id, { is_checked_in: true })
+                  );
+                  await Promise.all(updates);
+                  toast({ title: "Erfolg", description: `${participants.length} Teilnehmer wurden als eingecheckt markiert.` });
+                  fetchParticipants();
+                } catch (error) {
+                  toast({ variant: "destructive", title: "Fehler", description: "Fehler beim Aktualisieren der Teilnehmer." });
+                }
+              }}
+            >
+              <UserPlus className="mr-2 h-4 w-4" /> Alle einchecken
+            </Button>
             <Dialog open={isImportOpen} onOpenChange={setIsImportOpen}>
                 <DialogTrigger asChild>
                     <Button variant="outline"><Users className="mr-2 h-4 w-4" /> Massen-Import</Button>
