@@ -94,7 +94,7 @@ function DashboardContent() {
       setParticipants(participantsData);
       const totalBalance = participantsData.reduce((sum, p) => sum + (p.balance || 0), 0);
       const totalProductsSold = salesTransactions.reduce((sum, t) => sum + (t.quantity || 0), 0);
-      const totalRevenue = salesTransactions.reduce((sum, t) => sum + (t.total_price || 0), 0);
+      const totalRevenue = salesTransactions.reduce((sum, t) => sum + (parseFloat(t.total_price) || 0), 0);
       const participantCount = participantsData.filter(p => p.is_checked_in).length;
 
       setStats({ totalBalance, totalProductsSold, totalRevenue, participantCount });
@@ -108,10 +108,9 @@ function DashboardContent() {
       setLowStockProducts(lowStock);
 
       const salesData = products.map(product => {
-        const sold = salesTransactions
-          .filter(t => t.product_id === product.id)
-          .reduce((sum, t) => sum + (t.quantity || 0), 0);
-        const revenue = (product.price || 0) * sold;
+        const productTransactions = salesTransactions.filter(t => t.product_id === product.id);
+        const sold = productTransactions.reduce((sum, t) => sum + (t.quantity || 0), 0);
+        const revenue = productTransactions.reduce((sum, t) => sum + (parseFloat(t.total_price) || 0), 0);
         return { 
           id: product.id,
           name: product.name,
@@ -312,18 +311,23 @@ function DashboardContent() {
 
       <Card className="content-card">
         <CardHeader>
-          <CardTitle>Letzte Transaktionen</CardTitle>
+          <CardTitle className="flex items-center justify-between">
+            <span>Letzte Transaktionen</span>
+            <Badge variant="secondary">{recentTransactions.length} Einträge</Badge>
+          </CardTitle>
         </CardHeader>
         <CardContent className="p-0">
           <div className="max-h-96 overflow-y-auto">
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Zeit</TableHead>
-                  <TableHead>Teilnehmer</TableHead>
+                  <TableHead className="w-24">Zeit</TableHead>
+                  <TableHead className="w-32">Teilnehmer</TableHead>
                   <TableHead>Produkt</TableHead>
-                  <TableHead className="text-right">Betrag</TableHead>
-                  <TableHead className="text-center">Aktion</TableHead>
+                  <TableHead className="w-16 text-center">Menge</TableHead>
+                  <TableHead className="w-24 text-right">Betrag</TableHead>
+                  <TableHead className="w-20 text-center">Status</TableHead>
+                  <TableHead className="w-24 text-center">Aktion</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -334,33 +338,67 @@ function DashboardContent() {
                     return null;
                   }
 
+                  const isPositive = (transaction.total_price || 0) > 0;
+                  const isStorno = transaction.is_storno;
+                  const isCancelled = transaction.is_cancelled;
+                  const isGuthabenAufladung = (transaction.product_name || '').includes('Guthaben-Aufladung');
+
                   return (
-                    <TableRow key={transaction.id} className={`themed-list-item ${transaction.is_cancelled || transaction.is_storno ? 'opacity-50' : ''}`}>
-                      <TableCell className="text-xs">
-                        {transaction.created_at ? new Date(transaction.created_at).toLocaleTimeString('de-DE') : 'N/A'}
+                    <TableRow key={transaction.id} className={`themed-list-item ${isCancelled || isStorno ? 'opacity-60' : ''}`}>
+                      <TableCell className="text-xs font-mono">
+                        {transaction.created_at ? new Date(transaction.created_at).toLocaleTimeString('de-DE', { 
+                          hour: '2-digit', 
+                          minute: '2-digit',
+                          second: '2-digit'
+                        }) : 'N/A'}
                       </TableCell>
-                      <TableCell>{transaction.participant_name || 'Unbekannt'}</TableCell>
+                      <TableCell className="font-medium">
+                        <div className="truncate max-w-28" title={transaction.participant_name || 'Unbekannt'}>
+                          {transaction.participant_name || 'Unbekannt'}
+                        </div>
+                      </TableCell>
                       <TableCell>
-                          {transaction.is_storno && <Badge variant="destructive" className="mr-2">Storno</Badge>}
-                          {transaction.product_name || 'Unbekannt'}
+                        <div className="flex items-center gap-2">
+                          {isStorno && <Badge variant="destructive" className="text-xs">Storno</Badge>}
+                          {isGuthabenAufladung && <Badge variant="outline" className="text-xs bg-green-50 text-green-700">Aufladung</Badge>}
+                          <span className="truncate" title={transaction.product_name || 'Unbekannt'}>
+                            {(transaction.product_name || 'Unbekannt').replace(/^0+/, '')}
+                          </span>
+                        </div>
                       </TableCell>
-                      <TableCell className={`text-right font-semibold ${(transaction.total_price || 0) > 0 ? 'text-red-600' : 'text-green-600'}`}>
-                        € {(Number(transaction.total_price) || 0).toFixed(2)}
+                      <TableCell className="text-center font-mono">
+                        {transaction.quantity ? `${transaction.quantity}x` : '1x'}
+                      </TableCell>
+                      <TableCell className={`text-right font-semibold font-mono ${
+                        isGuthabenAufladung ? 'text-green-600' : 
+                        isPositive ? 'text-red-600' : 'text-green-600'
+                      }`}>
+                        {isPositive && !isGuthabenAufladung ? '+' : ''}€ {Math.abs(Number(transaction.total_price) || 0).toFixed(2)}
                       </TableCell>
                       <TableCell className="text-center">
-                          {(transaction.total_price || 0) > 0 && !transaction.is_cancelled && !transaction.is_storno ? (
+                        {isCancelled ? (
+                          <Badge variant="secondary" className="text-xs">Storniert</Badge>
+                        ) : isStorno ? (
+                          <Badge variant="destructive" className="text-xs">Storno</Badge>
+                        ) : isGuthabenAufladung ? (
+                          <Badge variant="outline" className="text-xs bg-green-50 text-green-700">Aufladung</Badge>
+                        ) : (
+                          <Badge variant="default" className="text-xs bg-blue-50 text-blue-700">Verkauf</Badge>
+                        )}
+                      </TableCell>
+                      <TableCell className="text-center">
+                          {isPositive && !isCancelled && !isStorno && !isGuthabenAufladung ? (
                               <AlertDialog>
                                   <AlertDialogTrigger asChild>
-                                      <Button variant="outline" size="sm">
-                                        <RotateCcw className="h-4 w-4 mr-2" />
-                                        Storno
+                                      <Button variant="outline" size="sm" className="h-8 px-2">
+                                        <RotateCcw className="h-3 w-3" />
                                       </Button>
                                   </AlertDialogTrigger>
                                   <AlertDialogContent>
                                       <AlertDialogHeader>
                                           <AlertDialogTitle>Transaktion stornieren?</AlertDialogTitle>
                                           <AlertDialogDescription>
-                                              Möchten Sie den Kauf von "{transaction.product_name || 'Unbekannt'}" ({transaction.quantity || 0}x) durch {transaction.participant_name || 'Unbekannt'} für € {(Number(transaction.total_price) || 0).toFixed(2)} wirklich stornieren? Das Guthaben wird zurückgebucht und der Lagerbestand angepasst.
+                                              Möchten Sie den Kauf von "{transaction.product_name || 'Unbekannt'}" ({transaction.quantity || 1}x) durch {transaction.participant_name || 'Unbekannt'} für € {(Number(transaction.total_price) || 0).toFixed(2)} wirklich stornieren? Das Guthaben wird zurückgebucht und der Lagerbestand angepasst.
                                           </AlertDialogDescription>
                                       </AlertDialogHeader>
                                       <AlertDialogFooter>
@@ -369,13 +407,15 @@ function DashboardContent() {
                                       </AlertDialogFooter>
                                   </AlertDialogContent>
                               </AlertDialog>
-                          ) : (transaction.is_cancelled && <Badge>Storniert</Badge>)}
+                          ) : (
+                            <span className="text-xs text-gray-400">-</span>
+                          )}
                       </TableCell>
                     </TableRow>
                   );
                 }).filter(Boolean) : ( // Filter out null entries
                     <TableRow>
-                        <TableCell colSpan={5} className="text-center text-gray-500 py-8">
+                        <TableCell colSpan={7} className="text-center text-gray-500 py-8">
                             Noch keine Transaktionen vorhanden.
                         </TableCell>
                     </TableRow>

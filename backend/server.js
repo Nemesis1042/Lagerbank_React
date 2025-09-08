@@ -7,35 +7,14 @@ dotenv.config();
 
 const app = express();
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: '10mb' }));
 
-// Debug middleware for logging requests
-app.use((req, res, next) => {
-  const start = Date.now();
-  console.log(`[${new Date().toISOString()}] ${req.method} ${req.url} - Request received`);
-
-  // Log request body for POST/PUT requests (excluding sensitive data)
-  if (req.method === 'POST' || req.method === 'PUT') {
-    console.log(`[${new Date().toISOString()}] Request body:`, JSON.stringify(req.body, null, 2));
-  }
-
-  // Override res.json to log response
-  const originalJson = res.json;
-  res.json = function(data) {
-    const duration = Date.now() - start;
-    console.log(`[${new Date().toISOString()}] ${req.method} ${req.url} - Response sent (${res.statusCode}) in ${duration}ms`);
-    console.log(`[${new Date().toISOString()}] Response data:`, JSON.stringify(data, null, 2));
-    return originalJson.call(this, data);
-  };
-
-  next();
-});
-
+// Datenbankverbindung
 const pool = mysql.createPool({
-  host: process.env.DB_HOST,
-  user: process.env.DB_USER,
-  password: process.env.DB_PASS,
-  database: process.env.DB_NAME,
+  host: process.env.DB_HOST || "localhost",
+  user: process.env.DB_USER || "root",
+  password: process.env.DB_PASS || process.env.DB_PASSWORD || "",
+  database: process.env.DB_NAME || "lagerbank",
   waitForConnections: true,
   connectionLimit: 10,
   queueLimit: 0,
@@ -481,5 +460,18 @@ app.get("/", (req, res) => {
 // ==================== Server starten ====================
 const PORT = process.env.PORT || 4000;
 app.listen(PORT, () => {
-  console.log(`Backend läuft auf http://localhost:${PORT}`);
+  console.log(`[${new Date().toISOString()}] Backend läuft auf http://localhost:${PORT}`);
+});
+
+// Graceful shutdown
+process.on('SIGTERM', async () => {
+  console.log(`[${new Date().toISOString()}] SIGTERM received, shutting down gracefully`);
+  await pool.end();
+  process.exit(0);
+});
+
+process.on('SIGINT', async () => {
+  console.log(`[${new Date().toISOString()}] SIGINT received, shutting down gracefully`);
+  await pool.end();
+  process.exit(0);
 });

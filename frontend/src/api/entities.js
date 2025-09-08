@@ -1,13 +1,8 @@
-const API_BASE = "http://localhost:4000/api/entities";
+import apiClient from './base44Client.js';
 
 // Hilfsfunktion für Requests
 async function apiRequest(path, options = {}) {
-  const res = await fetch(`${API_BASE}${path}`, {
-    headers: { "Content-Type": "application/json" },
-    ...options,
-  });
-  if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
-  return res.json();
+  return apiClient.request(`/entities${path}`, options);
 }
 
 // ==================== Participant ====================

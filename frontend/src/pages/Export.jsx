@@ -68,7 +68,7 @@ function ExportContent() {
       const csvData = [
         'TN-Nr,Name,Barcode-ID,Aktuelles Guthaben,Startguthaben,Typ,Eingecheckt',
         ...participants.map(p => 
-          `${p.tn_id || ''},${p.name},"${p.barcode_id}",${(Number(p.balance) || 0).toFixed(2)},${(Number(p.initial_balance) || 0).toFixed(2)},${p.is_staff ? 'Mitarbeiter' : 'Teilnehmer'},${p.is_checked_in ? 'Ja' : 'Nein'}`
+          `${p.tn_id || ''},"${p.name || ''}","${p.barcode_id || ''}",${(Number(p.balance) || 0).toFixed(2)},${(Number(p.initial_balance) || 0).toFixed(2)},${p.is_staff ? 'Mitarbeiter' : 'Teilnehmer'},${p.is_checked_in ? 'Ja' : 'Nein'}`
         )
       ];
       
@@ -76,7 +76,8 @@ function ExportContent() {
       downloadCSV(csvData, `Teilnehmer_${camp?.name || 'Export'}_${new Date().toISOString().split('T')[0]}.csv`);
       toast({ title: "Erfolg", description: "Teilnehmer erfolgreich exportiert!" });
     } catch (error) {
-      toast({ variant: "destructive", title: "Fehler", description: "Fehler beim Exportieren der Teilnehmer." });
+      console.error('Export error:', error);
+      toast({ variant: "destructive", title: "Fehler", description: `Fehler beim Exportieren der Teilnehmer: ${error.message}` });
     }
     
     setIsExporting(false);
@@ -92,9 +93,11 @@ function ExportContent() {
         'Datum,Teilnehmer,Produkt,Menge,Einzelpreis,Gesamtpreis,Typ',
         ...transactions.map(t => {
           const date = new Date(t.created_at).toLocaleDateString('de-DE');
-          const unitPrice = t.quantity > 0 ? Math.abs(t.total_price) / t.quantity : 0;
-          const type = t.total_price < 0 ? 'Einzahlung' : 'Kauf';
-          return `${date},"${t.participant_name}","${t.product_name}",${t.quantity},${unitPrice.toFixed(2)},${Math.abs(t.total_price).toFixed(2)},${type}`;
+          const totalPrice = parseFloat(t.total_price) || 0;
+          const quantity = parseInt(t.quantity) || 0;
+          const unitPrice = quantity > 0 ? Math.abs(totalPrice) / quantity : 0;
+          const type = totalPrice < 0 ? 'Einzahlung' : 'Kauf';
+          return `${date},"${t.participant_name || ''}","${t.product_name || ''}",${quantity},${unitPrice.toFixed(2)},${Math.abs(totalPrice).toFixed(2)},${type}`;
         })
       ];
       
@@ -102,7 +105,8 @@ function ExportContent() {
       downloadCSV(csvData, `Transaktionen_${camp?.name || 'Export'}_${new Date().toISOString().split('T')[0]}.csv`);
       toast({ title: "Erfolg", description: "Transaktionen erfolgreich exportiert!" });
     } catch (error) {
-      toast({ variant: "destructive", title: "Fehler", description: "Fehler beim Exportieren der Transaktionen." });
+      console.error('Export error:', error);
+      toast({ variant: "destructive", title: "Fehler", description: `Fehler beim Exportieren der Transaktionen: ${error.message}` });
     }
     
     setIsExporting(false);
@@ -119,14 +123,14 @@ function ExportContent() {
       // Berechne Statistiken für jeden Teilnehmer
       const reportData = participants.map(p => {
         const participantTransactions = transactions.filter(t => t.participant_id === p.id);
-        const purchases = participantTransactions.filter(t => t.total_price > 0);
-        const deposits = participantTransactions.filter(t => t.total_price < 0);
+        const purchases = participantTransactions.filter(t => parseFloat(t.total_price) > 0);
+        const deposits = participantTransactions.filter(t => parseFloat(t.total_price) < 0);
         
-        const totalSpent = purchases.reduce((sum, t) => sum + t.total_price, 0);
-        const totalDeposited = Math.abs(deposits.reduce((sum, t) => sum + t.total_price, 0));
+        const totalSpent = purchases.reduce((sum, t) => sum + parseFloat(t.total_price), 0);
+        const totalDeposited = Math.abs(deposits.reduce((sum, t) => sum + parseFloat(t.total_price), 0));
         const refundAmount = totalDeposited - totalSpent;
         
-        return `${p.tn_id || ''},"${p.name}","${p.barcode_id}",${totalDeposited.toFixed(2)},${totalSpent.toFixed(2)},${refundAmount.toFixed(2)},${p.is_staff ? 'Mitarbeiter' : 'Teilnehmer'},${p.is_checked_in ? 'Eingecheckt' : 'Ausgecheckt'}`;
+        return `${p.tn_id || ''},"${p.name || ''}","${p.barcode_id || ''}",${totalDeposited.toFixed(2)},${totalSpent.toFixed(2)},${refundAmount.toFixed(2)},${p.is_staff ? 'Mitarbeiter' : 'Teilnehmer'},${p.is_checked_in ? 'Eingecheckt' : 'Ausgecheckt'}`;
       });
 
       const csvData = [
@@ -138,7 +142,8 @@ function ExportContent() {
       downloadCSV(csvData, `Gesamtbericht_${camp?.name || 'Export'}_${new Date().toISOString().split('T')[0]}.csv`);
       toast({ title: "Erfolg", description: "Gesamtbericht erfolgreich exportiert!" });
     } catch (error) {
-      toast({ variant: "destructive", title: "Fehler", description: "Fehler beim Exportieren des Berichts." });
+      console.error('Export error:', error);
+      toast({ variant: "destructive", title: "Fehler", description: `Fehler beim Exportieren des Berichts: ${error.message}` });
     }
     
     setIsExporting(false);
