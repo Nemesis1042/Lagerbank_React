@@ -108,17 +108,24 @@ app.put("/api/entities/Participant/:id", async (req, res) => {
 });
 
 app.delete("/api/entities/Participant/:id", async (req, res) => {
+  const { id } = req.params;
   try {
-    const { id } = req.params;
-    console.log(`[${new Date().toISOString()}] Executing query: DELETE FROM Participant WHERE id = ?`, [id]);
+    // check if participant is referenced
+    const [tx] = await pool.query("SELECT COUNT(*) as cnt FROM Transaction WHERE participant_id = ?", [id]);
+    if (tx[0].cnt > 0) {
+      return res.status(400).json({
+        error: "Teilnehmer kann nicht gelöscht werden, es existieren noch Transaktionen."
+      });
+    }
+
     const [result] = await pool.query("DELETE FROM Participant WHERE id = ?", [id]);
-    console.log(`[${new Date().toISOString()}] Delete result: ${result.affectedRows} rows affected`);
     res.json({ deleted: result.affectedRows });
   } catch (error) {
-    console.error(`[${new Date().toISOString()}] Database error in Participant DELETE:`, error);
-    res.status(500).json({ error: error.message, stack: error.stack });
+    console.error(error);
+    res.status(500).json({ error: "Serverfehler beim Löschen" });
   }
 });
+
 
 app.post("/api/entities/Participant/bulk", async (req, res) => {
   try {
@@ -353,15 +360,75 @@ app.put("/api/entities/Camp/:id", async (req, res) => {
 });
 
 app.delete("/api/entities/Camp/:id", async (req, res) => {
+  const { id } = req.params;
+  const { force } = req.query; // Check if force deletion is requested
+  
   try {
-    const { id } = req.params;
-    console.log(`[${new Date().toISOString()}] Executing query: DELETE FROM Camp WHERE id = ?`, [id]);
+    console.log(`[${new Date().toISOString()}] Checking references for Camp ID: ${id}, force: ${force}`);
+    
+    const warnings = [];
+    
+    // Check if camp is referenced in Transaction table
+    const [transactions] = await pool.query("SELECT COUNT(*) as cnt FROM Transaction WHERE camp_id = ?", [id]);
+    if (transactions[0].cnt > 0) {
+      console.log(`[${new Date().toISOString()}] Camp ${id} has ${transactions[0].cnt} transactions`);
+      warnings.push(`${transactions[0].cnt} Transaktionen werden mit gelöscht`);
+    }
+
+    // Check if camp is referenced in Participant table
+    const [participants] = await pool.query("SELECT COUNT(*) as cnt FROM Participant WHERE camp_id = ?", [id]);
+    if (participants[0].cnt > 0) {
+      console.log(`[${new Date().toISOString()}] Camp ${id} has ${participants[0].cnt} participants`);
+      warnings.push(`${participants[0].cnt} Teilnehmer werden mit gelöscht`);
+    }
+
+    // Check if camp is set as active camp in AppSettings
+    const [settings] = await pool.query("SELECT COUNT(*) as cnt FROM AppSettings WHERE active_camp_id = ?", [id]);
+    if (settings[0].cnt > 0) {
+      console.log(`[${new Date().toISOString()}] Camp ${id} is currently active`);
+      warnings.push("Das aktive Lager wird zurückgesetzt");
+    }
+
+    // Check if camp is referenced in AuditLog table
+    const [auditLogs] = await pool.query("SELECT COUNT(*) as cnt FROM AuditLog WHERE camp_id = ?", [id]);
+    if (auditLogs[0].cnt > 0) {
+      console.log(`[${new Date().toISOString()}] Camp ${id} has ${auditLogs[0].cnt} audit log entries`);
+      warnings.push(`${auditLogs[0].cnt} Audit-Log-Einträge werden mit gelöscht`);
+    }
+
+    // If there are warnings and force is not set, return warnings
+    if (warnings.length > 0 && force !== 'true') {
+      console.log(`[${new Date().toISOString()}] Returning warnings for Camp ${id}:`, warnings);
+      return res.status(409).json({
+        requiresConfirmation: true,
+        warnings: warnings,
+        message: "Dieses Lager hat noch verknüpfte Daten. Möchten Sie es trotzdem löschen?"
+      });
+    }
+
+    // Proceed with deletion (cascade delete)
+    console.log(`[${new Date().toISOString()}] Proceeding with deletion of Camp ${id} and all related data`);
+    
+    // Delete in correct order to avoid foreign key constraints
+    // First, remove foreign key references
+    await pool.query("UPDATE AppSettings SET active_camp_id = NULL, active_camp_name = NULL WHERE active_camp_id = ?", [id]);
+    
+    // Then delete dependent records
+    await pool.query("DELETE FROM Transaction WHERE camp_id = ?", [id]);
+    await pool.query("DELETE FROM Participant WHERE camp_id = ?", [id]);
+    await pool.query("DELETE FROM AuditLog WHERE camp_id = ?", [id]);
+    
+    // Finally delete the camp itself
     const [result] = await pool.query("DELETE FROM Camp WHERE id = ?", [id]);
     console.log(`[${new Date().toISOString()}] Delete result: ${result.affectedRows} rows affected`);
-    res.json({ deleted: result.affectedRows });
+    
+    res.json({ 
+      deleted: result.affectedRows,
+      warnings: warnings.length > 0 ? warnings : undefined
+    });
   } catch (error) {
     console.error(`[${new Date().toISOString()}] Database error in Camp DELETE:`, error);
-    res.status(500).json({ error: error.message, stack: error.stack });
+    res.status(500).json({ error: "Serverfehler beim Löschen des Lagers" });
   }
 });
 

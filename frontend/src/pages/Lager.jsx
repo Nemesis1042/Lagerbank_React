@@ -117,6 +117,7 @@ function LagerContent() {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingCamp, setEditingCamp] = useState(null);
   const [activeCampId, setActiveCampId] = useState(null);
+  const [deleteWarning, setDeleteWarning] = useState(null);
   const { toast } = useToast();
 
   const fetchCamps = useCallback(async (isMounted) => {
@@ -157,13 +158,42 @@ function LagerContent() {
     return () => { isMounted = false; };
   };
 
-  const handleDelete = async (campId) => {
+  const handleDelete = async (campId, force = false) => {
     try {
-      await Camp.delete(campId);
-      toast({ title: "Erfolg", description: "Lager wurde gelöscht." });
-      fetchCamps(() => true); // Assuming component is mounted when user interacts
+      const response = await fetch(`http://localhost:4000/api/entities/Camp/${campId}${force ? '?force=true' : ''}`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (response.status === 409) {
+        // Confirmation required
+        const data = await response.json();
+        return data; // Return the warnings to be handled by the calling function
+      }
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Unbekannter Fehler');
+      }
+
+      const result = await response.json();
+      toast({ 
+        title: "Erfolg", 
+        description: result.warnings ? 
+          `Lager wurde gelöscht. ${result.warnings.join(', ')}.` : 
+          "Lager wurde gelöscht." 
+      });
+      fetchCamps(() => true);
+      return null; // Success, no warnings needed
     } catch (error) {
-      toast({ variant: "destructive", title: "Fehler", description: "Lager konnte nicht gelöscht werden." });
+      toast({ 
+        variant: "destructive", 
+        title: "Fehler", 
+        description: error.message || "Lager konnte nicht gelöscht werden." 
+      });
+      return null;
     }
   };
 
@@ -258,11 +288,44 @@ function LagerContent() {
                   <AlertDialogContent>
                     <AlertDialogHeader>
                       <AlertDialogTitle>Lager löschen</AlertDialogTitle>
-                      <AlertDialogDescription>Möchten Sie "{camp.name}" wirklich löschen? Diese Aktion kann nicht rückgängig gemacht werden.</AlertDialogDescription>
+                      <AlertDialogDescription>
+                        {deleteWarning && deleteWarning.campId === camp.id ? (
+                          <div className="space-y-2">
+                            <p className="font-medium text-orange-600">{deleteWarning.message}</p>
+                            <div className="text-sm">
+                              <p className="font-medium">Folgende Daten werden mit gelöscht:</p>
+                              <ul className="list-disc list-inside mt-1 space-y-1">
+                                {deleteWarning.warnings.map((warning, index) => (
+                                  <li key={index} className="text-orange-700">{warning}</li>
+                                ))}
+                              </ul>
+                            </div>
+                          </div>
+                        ) : (
+                          `Möchten Sie "${camp.name}" wirklich löschen? Diese Aktion kann nicht rückgängig gemacht werden.`
+                        )}
+                      </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
-                      <AlertDialogCancel>Abbrechen</AlertDialogCancel>
-                      <AlertDialogAction onClick={() => handleDelete(camp.id)}>Löschen</AlertDialogAction>
+                      <AlertDialogCancel onClick={() => setDeleteWarning(null)}>Abbrechen</AlertDialogCancel>
+                      <AlertDialogAction 
+                        onClick={async () => {
+                          if (deleteWarning && deleteWarning.campId === camp.id) {
+                            // Force delete with warnings acknowledged
+                            await handleDelete(camp.id, true);
+                            setDeleteWarning(null);
+                          } else {
+                            // First attempt - check for warnings
+                            const warningData = await handleDelete(camp.id, false);
+                            if (warningData && warningData.requiresConfirmation) {
+                              setDeleteWarning({ ...warningData, campId: camp.id });
+                            }
+                          }
+                        }}
+                        className={deleteWarning && deleteWarning.campId === camp.id ? "bg-orange-600 hover:bg-orange-700" : ""}
+                      >
+                        {deleteWarning && deleteWarning.campId === camp.id ? "Trotzdem löschen" : "Löschen"}
+                      </AlertDialogAction>
                     </AlertDialogFooter>
                   </AlertDialogContent>
                 </AlertDialog>
