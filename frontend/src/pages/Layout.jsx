@@ -12,6 +12,7 @@ import { Label } from '@/components/ui/label';
 import { Sheet, SheetContent, SheetTrigger, SheetClose } from '@/components/ui/sheet';
 import { Toaster } from '@/components/ui/toaster';
 import ErrorBoundary from '../components/ErrorBoundary';
+import authService from '@/api/auth';
 
 const kasseNavItems = [
   { name: 'Click-Kasse', url: createPageUrl('Kasse?view=click'), icon: Users },
@@ -37,13 +38,26 @@ const adminNavItems = [
 function AdminPasswordDialog({ onAuthenticated, onCancel, passwordToMatch }) {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
 
-  const handleCheckPassword = () => {
+  const handleCheckPassword = async () => {
     setError('');
-    if (password === passwordToMatch) {
-      onAuthenticated();
-    } else {
-      setError('Falsches Passwort.');
+    setIsLoading(true);
+    
+    try {
+      // Use the authentication service to login
+      const result = await authService.login(password, 'admin');
+      
+      if (result.success) {
+        onAuthenticated();
+      } else {
+        setError(result.error || 'Falsches Passwort.');
+      }
+    } catch (error) {
+      console.error('Login error:', error);
+      setError('Fehler beim Anmelden. Bitte versuchen Sie es erneut.');
+    } finally {
+      setIsLoading(false);
     }
   };
 

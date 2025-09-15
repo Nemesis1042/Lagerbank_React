@@ -2,12 +2,92 @@ import express from "express";
 import cors from "cors";
 import mysql from "mysql2/promise";
 import dotenv from "dotenv";
+import helmet from "helmet";
+import rateLimit from "express-rate-limit";
+import { extractUserInfo, createSession, validateSession, destroySession, getActiveSessions } from "./middleware/auth.js";
+import Joi from "joi";
+import { 
+  validateBody, 
+  validateQuery, 
+  validateParams, 
+  sanitizeInput,
+  participantSchema,
+  productSchema,
+  transactionSchema,
+  campSchema,
+  appSettingsSchema,
+  auditLogSchema,
+  loginSchema,
+  idParamSchema,
+  participantQuerySchema,
+  transactionQuerySchema
+} from "./middleware/validation.js";
+import { 
+  errorHandler, 
+  notFoundHandler, 
+  requestLogger, 
+  healthCheck, 
+  asyncHandler,
+  handleDatabaseError
+} from "./middleware/errorHandler.js";
+import { comparePassword, hashPassword, isBcryptHash } from "./utils/passwordUtils.js";
 
 dotenv.config();
 
 const app = express();
+
+// Security Middleware
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      styleSrc: ["'self'", "'unsafe-inline'"],
+      scriptSrc: ["'self'"],
+      imgSrc: ["'self'", "data:", "https:"],
+    },
+  },
+}));
+
 app.use(cors());
 app.use(express.json({ limit: '10mb' }));
+
+// Rate Limiting
+const generalLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 100, // limit each IP to 100 requests per windowMs
+  message: {
+    error: 'Zu viele Anfragen von dieser IP, versuchen Sie es später erneut.',
+    statusCode: 429
+  }
+});
+
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 5, // limit each IP to 5 login attempts per windowMs
+  message: {
+    error: 'Zu viele Login-Versuche, versuchen Sie es später erneut.',
+    statusCode: 429
+  }
+});
+
+const bulkLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 hour
+  max: 10, // limit each IP to 10 bulk operations per hour
+  message: {
+    error: 'Zu viele Bulk-Operationen, versuchen Sie es später erneut.',
+    statusCode: 429
+  }
+});
+
+// Apply rate limiting
+app.use('/api/', generalLimiter);
+app.use('/api/auth/login', authLimiter);
+app.use('/api/entities/*/bulk', bulkLimiter);
+
+// Request logging and user info extraction
+app.use(requestLogger);
+app.use(extractUserInfo);
+app.use(sanitizeInput);
 
 // Datenbankverbindung
 const pool = mysql.createPool({
@@ -20,9 +100,13 @@ const pool = mysql.createPool({
   queueLimit: 0,
 });
 
+// Health Check Endpoint
+app.get("/health", healthCheck);
+
 // ==================== Participant ====================
-app.get("/api/entities/Participant", async (req, res) => {
-  try {
+app.get("/api/entities/Participant", 
+  validateQuery(participantQuerySchema),
+  asyncHandler(async (req, res) => {
     let query = "SELECT * FROM Participant WHERE 1=1";
     const params = [];
 
@@ -59,14 +143,12 @@ app.get("/api/entities/Participant", async (req, res) => {
     
     console.log(`[${new Date().toISOString()}] Query result: ${processedRows.length} rows returned`);
     res.json(processedRows);
-  } catch (error) {
-    console.error(`[${new Date().toISOString()}] Database error in Participant GET:`, error);
-    res.status(500).json({ error: error.message, stack: error.stack });
-  }
-});
+  })
+);
 
-app.post("/api/entities/Participant", async (req, res) => {
-  try {
+app.post("/api/entities/Participant", 
+  validateBody(participantSchema),
+  asyncHandler(async (req, res) => {
     const data = req.body;
     console.log(`[${new Date().toISOString()}] Executing query: INSERT INTO Participant SET ?`, [data]);
     const [result] = await pool.query("INSERT INTO Participant SET ?", [data]);
@@ -84,14 +166,13 @@ app.post("/api/entities/Participant", async (req, res) => {
     };
     
     res.json(createdParticipant);
-  } catch (error) {
-    console.error(`[${new Date().toISOString()}] Database error in Participant POST:`, error);
-    res.status(500).json({ error: error.message, stack: error.stack });
-  }
-});
+  })
+);
 
-app.put("/api/entities/Participant/:id", async (req, res) => {
-  try {
+app.put("/api/entities/Participant/:id", 
+  validateParams(idParamSchema),
+  validateBody(participantSchema.fork(['name'], (schema) => schema.optional())),
+  asyncHandler(async (req, res) => {
     const { id } = req.params;
     const data = req.body;
     console.log(`[${new Date().toISOString()}] Executing query: UPDATE Participant SET ? WHERE id = ?`, [data, id]);
@@ -101,15 +182,13 @@ app.put("/api/entities/Participant/:id", async (req, res) => {
     ]);
     console.log(`[${new Date().toISOString()}] Update result: ${result.affectedRows} rows affected`);
     res.json({ updated: result.affectedRows });
-  } catch (error) {
-    console.error(`[${new Date().toISOString()}] Database error in Participant PUT:`, error);
-    res.status(500).json({ error: error.message, stack: error.stack });
-  }
-});
+  })
+);
 
-app.delete("/api/entities/Participant/:id", async (req, res) => {
-  const { id } = req.params;
-  try {
+app.delete("/api/entities/Participant/:id", 
+  validateParams(idParamSchema),
+  asyncHandler(async (req, res) => {
+    const { id } = req.params;
     // check if participant is referenced
     const [tx] = await pool.query("SELECT COUNT(*) as cnt FROM Transaction WHERE participant_id = ?", [id]);
     if (tx[0].cnt > 0) {
@@ -120,22 +199,16 @@ app.delete("/api/entities/Participant/:id", async (req, res) => {
 
     const [result] = await pool.query("DELETE FROM Participant WHERE id = ?", [id]);
     res.json({ deleted: result.affectedRows });
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: "Serverfehler beim Löschen" });
-  }
-});
+  })
+);
 
 
-app.post("/api/entities/Participant/bulk", async (req, res) => {
-  try {
+app.post("/api/entities/Participant/bulk", 
+  validateBody(Joi.array().items(participantSchema).min(1).max(100)),
+  asyncHandler(async (req, res) => {
     const participants = req.body;
     console.log(`[${new Date().toISOString()}] Executing bulk insert for ${participants.length} participants`);
     
-    if (!Array.isArray(participants) || participants.length === 0) {
-      return res.status(400).json({ error: "Request body must be a non-empty array of participants" });
-    }
-
     const results = [];
     
     // Insert each participant individually to get proper IDs and error handling
@@ -164,11 +237,8 @@ app.post("/api/entities/Participant/bulk", async (req, res) => {
     
     console.log(`[${new Date().toISOString()}] Bulk insert completed: ${results.length}/${participants.length} participants created`);
     res.json(results);
-  } catch (error) {
-    console.error(`[${new Date().toISOString()}] Database error in Participant bulk POST:`, error);
-    res.status(500).json({ error: error.message, stack: error.stack });
-  }
-});
+  })
+);
 
 // ==================== Product ====================
 app.get("/api/entities/Product", async (req, res) => {
@@ -491,8 +561,17 @@ app.get("/api/entities/AuditLog", async (req, res) => {
 app.post("/api/entities/AuditLog", async (req, res) => {
   try {
     const data = req.body;
-    console.log(`[${new Date().toISOString()}] Executing query: INSERT INTO AuditLog SET ?`, [data]);
-    const [result] = await pool.query("INSERT INTO AuditLog SET ?", [data]);
+    
+    // Automatically add authid and other user info if not provided
+    const auditData = {
+      ...data,
+      authid: data.authid || req.userInfo.authid,
+      ip_address: data.ip_address || req.userInfo.ipAddress,
+      user_agent: data.user_agent || req.userInfo.userAgent
+    };
+    
+    console.log(`[${new Date().toISOString()}] Executing query: INSERT INTO AuditLog SET ?`, [auditData]);
+    const [result] = await pool.query("INSERT INTO AuditLog SET ?", [auditData]);
     console.log(`[${new Date().toISOString()}] Insert result: ID ${result.insertId} created`);
     res.json({ id: result.insertId, created: true });
   } catch (error) {
@@ -518,11 +597,109 @@ app.put("/api/entities/AuditLog/:id", async (req, res) => {
   }
 });
 
+// ==================== Authentication Routes ====================
+app.post("/api/auth/login", async (req, res) => {
+  try {
+    const { password, username } = req.body;
+    
+    // Get admin password from database
+    const [settings] = await pool.query("SELECT admin_password FROM AppSettings LIMIT 1");
+    const adminPassword = settings.length > 0 ? settings[0].admin_password : 'admin';
+    
+    if (password === adminPassword) {
+      // Create session
+      const authid = username || 'admin';
+      const sessionToken = createSession(authid, 'admin');
+      
+      // Log the login
+      const auditData = {
+        action: 'admin_login',
+        entity_type: 'System',
+        entity_id: null,
+        details: JSON.stringify({ username: authid }),
+        authid: authid,
+        camp_id: null,
+        ip_address: req.userInfo.ipAddress,
+        user_agent: req.userInfo.userAgent
+      };
+      
+      try {
+        await pool.query("INSERT INTO AuditLog SET ?", [auditData]);
+      } catch (auditError) {
+        console.error('Failed to log admin login:', auditError);
+      }
+      
+      res.json({ 
+        success: true, 
+        sessionToken,
+        authid,
+        userType: 'admin'
+      });
+    } else {
+      res.status(401).json({ error: 'Invalid password' });
+    }
+  } catch (error) {
+    console.error('Login error:', error);
+    res.status(500).json({ error: 'Server error during login' });
+  }
+});
+
+app.post("/api/auth/logout", (req, res) => {
+  try {
+    const sessionToken = req.userInfo.sessionToken;
+    
+    if (sessionToken) {
+      // Log the logout
+      const auditData = {
+        action: 'admin_logout',
+        entity_type: 'System',
+        entity_id: null,
+        details: JSON.stringify({ authid: req.userInfo.authid }),
+        authid: req.userInfo.authid,
+        camp_id: null,
+        ip_address: req.userInfo.ipAddress,
+        user_agent: req.userInfo.userAgent
+      };
+      
+      pool.query("INSERT INTO AuditLog SET ?", [auditData]).catch(auditError => {
+        console.error('Failed to log admin logout:', auditError);
+      });
+      
+      destroySession(sessionToken);
+    }
+    
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Logout error:', error);
+    res.status(500).json({ error: 'Server error during logout' });
+  }
+});
+
+app.get("/api/auth/session", (req, res) => {
+  res.json({
+    authid: req.userInfo.authid,
+    userType: req.userInfo.userType,
+    isAuthenticated: req.userInfo.userType !== 'anonymous'
+  });
+});
+
+app.get("/api/auth/sessions", (req, res) => {
+  // Debug endpoint to see active sessions
+  res.json(getActiveSessions());
+});
+
 //=====================TEST ROUTE=========================
 // Test-Route für root
 app.get("/", (req, res) => {
   res.send("Backend läuft 🚀");
 });
+
+// ==================== Error Handling ====================
+// 404 Handler für unbekannte Routen
+app.use(notFoundHandler);
+
+// Zentraler Error Handler (muss als letztes stehen)
+app.use(errorHandler);
 
 // ==================== Server starten ====================
 const PORT = process.env.PORT || 4000;

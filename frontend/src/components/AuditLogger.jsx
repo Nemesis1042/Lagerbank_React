@@ -1,4 +1,5 @@
 import { AuditLog } from '@/api/entities';
+import authService from '@/api/auth';
 
 class AuditLogger {
   static async log(action, entityType, entityId = null, details = {}, campId = null) {
@@ -11,6 +12,9 @@ class AuditLogger {
         campId
       });
       
+      // Get current user information
+      const authid = authService.getAuthId();
+      
       // Sammle Browser-Informationen
       const userAgent = navigator.userAgent;
       const ipAddress = 'unknown'; // IP kann nicht direkt vom Browser abgerufen werden
@@ -20,6 +24,7 @@ class AuditLogger {
         entity_type: entityType,
         entity_id: entityId,
         details: JSON.stringify(details),
+        authid: authid,
         camp_id: campId,
         ip_address: ipAddress,
         user_agent: userAgent
